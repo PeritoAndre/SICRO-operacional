@@ -36,6 +36,74 @@
 	<string>O SICRO Operacional pode salvar arquivos e imagens gerados durante a pericia quando solicitado.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>O SICRO Operacional pode acessar fotos quando o perito decidir anexar registros ao dossie.</string>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>br.gov.ap.policiacientifica.sicroapp</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.zip-archive</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Dossie SICRO Operacional</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>sicroapp</string>
+					<string>sicrocampo</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.sicroapp</string>
+					<string>application/x-sicroapp</string>
+					<string>application/zip</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>br.gov.ap.policiacientifica.sicrobackup</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.zip-archive</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Backup SICRO Operacional</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>sicrobackup</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.sicrobackup</string>
+					<string>application/x-sicrobackup</string>
+					<string>application/zip</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Pacote SICRO Operacional</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>br.gov.ap.policiacientifica.sicroapp</string>
+				<string>br.gov.ap.policiacientifica.sicrobackup</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
