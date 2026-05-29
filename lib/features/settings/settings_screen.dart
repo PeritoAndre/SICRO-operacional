@@ -2,13 +2,32 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../core/data/app_settings_repository.dart';
+import '../../core/data/duty_shift_repository.dart';
+import '../../core/data/official_document_repository.dart';
+import '../../core/data/occurrence_repository.dart';
+import '../../core/services/backup_notification_service.dart';
+import '../../core/services/duty_shift_notification_service.dart';
 import '../../domain/models/app_settings.dart';
+import '../../features/backup/backup_screen.dart';
 import '../../shared/widgets/pilot_notice_card.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({required this.settingsRepository, super.key});
+  const SettingsScreen({
+    required this.settingsRepository,
+    this.occurrenceRepository,
+    this.officialDocumentRepository,
+    this.dutyShiftRepository,
+    this.backupNotificationService,
+    this.dutyShiftNotificationService,
+    super.key,
+  });
 
   final AppSettingsRepository settingsRepository;
+  final OccurrenceRepository? occurrenceRepository;
+  final OfficialDocumentRepository? officialDocumentRepository;
+  final DutyShiftRepository? dutyShiftRepository;
+  final BackupNotificationService? backupNotificationService;
+  final DutyShiftNotificationService? dutyShiftNotificationService;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -98,6 +117,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 });
               },
             ),
+            if (_canOpenBackup) ...[
+              const SizedBox(height: 18),
+              _BackupSettingsEntry(onOpen: _openBackup),
+            ],
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: _saving ? null : _save,
@@ -135,6 +158,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Configuracoes salvas.')));
+  }
+
+  bool get _canOpenBackup {
+    return widget.occurrenceRepository != null &&
+        widget.officialDocumentRepository != null &&
+        widget.dutyShiftRepository != null;
+  }
+
+  void _openBackup() {
+    final occurrenceRepository = widget.occurrenceRepository;
+    final officialDocumentRepository = widget.officialDocumentRepository;
+    final dutyShiftRepository = widget.dutyShiftRepository;
+    if (occurrenceRepository == null ||
+        officialDocumentRepository == null ||
+        dutyShiftRepository == null) {
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BackupScreen(
+          settingsRepository: widget.settingsRepository,
+          occurrenceRepository: occurrenceRepository,
+          officialDocumentRepository: officialDocumentRepository,
+          dutyShiftRepository: dutyShiftRepository,
+          backupNotificationService: widget.backupNotificationService,
+          dutyShiftNotificationService: widget.dutyShiftNotificationService,
+        ),
+      ),
+    );
   }
 }
 
@@ -236,8 +288,12 @@ class _AreaSelector extends StatelessWidget {
   String _subtitle(ForensicArea area) {
     return switch (area) {
       ForensicArea.traffic => 'Modulo operacional ativo no MVP',
-      ForensicArea.violentDeath => 'Estrutura preparada para etapa futura',
+      ForensicArea.violentDeath => 'Fluxo de local de crime contra a vida',
       ForensicArea.property => 'Estrutura preparada para etapa futura',
+      ForensicArea.environmental => 'Checklist ambiental baseado em POP',
+      ForensicArea.ballistics => 'Balistica Forense com checklist POP',
+      ForensicArea.audioImage => 'Audio e Imagem com checklist POP',
+      ForensicArea.papiloscopy => 'Papiloscopia com checklist POP',
     };
   }
 
@@ -246,6 +302,34 @@ class _AreaSelector extends StatelessWidget {
       ForensicArea.traffic => Icons.traffic_outlined,
       ForensicArea.violentDeath => Icons.health_and_safety_outlined,
       ForensicArea.property => Icons.domain_verification_outlined,
+      ForensicArea.environmental => Icons.forest_outlined,
+      ForensicArea.ballistics => Icons.adjust_outlined,
+      ForensicArea.audioImage => Icons.perm_media_outlined,
+      ForensicArea.papiloscopy => Icons.fingerprint,
     };
+  }
+}
+
+class _BackupSettingsEntry extends StatelessWidget {
+  const _BackupSettingsEntry({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        onTap: onOpen,
+        leading: const Icon(Icons.backup_outlined, color: AppColors.gold),
+        title: const Text(
+          'Backup completo do SICRO',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: const Text(
+          'Gerar .sicrobackup e acompanhar lembrete mensal.',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
   }
 }

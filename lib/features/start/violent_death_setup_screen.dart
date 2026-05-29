@@ -41,7 +41,7 @@ class _ViolentDeathSetupScreenState extends State<ViolentDeathSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Morte violenta')),
+      appBar: AppBar(title: const Text('Local de crime')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -213,7 +213,7 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Registre o contexto minimo e siga para o dossie operacional.',
+                  'Registre natureza, corpo/vitima, ambiente e vestigios esperados para orientar o dossie operacional.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
               ],

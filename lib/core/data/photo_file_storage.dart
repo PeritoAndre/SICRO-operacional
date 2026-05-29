@@ -39,6 +39,33 @@ class PhotoFileStorage {
     );
   }
 
+  Future<FieldPhoto> saveImportedPhoto({
+    required String occurrenceId,
+    required FieldPhoto photo,
+    required List<int> bytes,
+    String? sourcePath,
+  }) async {
+    final photoId = photo.id.trim().isEmpty ? _newPhotoId() : photo.id.trim();
+    final extension = _extensionFor(sourcePath ?? photo.filePath);
+    final photosDir = await _photosDirectory(occurrenceId);
+    final destination = File(
+      '${photosDir.path}${Platform.pathSeparator}$photoId$extension',
+    );
+
+    await destination.writeAsBytes(bytes, flush: true);
+    final computedSha = await _sha256(destination);
+
+    return FieldPhoto(
+      id: photoId,
+      filePath: destination.path,
+      category: photo.category,
+      capturedAt: photo.capturedAt,
+      caption: photo.caption,
+      sha256: photo.sha256.trim().isEmpty ? computedSha : photo.sha256,
+      linkedEntityId: photo.linkedEntityId,
+    );
+  }
+
   Future<void> deletePhoto(FieldPhoto photo) async {
     final file = File(photo.filePath);
     if (await file.exists()) {

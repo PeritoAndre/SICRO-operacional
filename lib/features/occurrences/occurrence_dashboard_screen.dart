@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../app/theme/app_theme.dart';
+import '../../core/data/official_document_repository.dart';
 import '../../core/data/occurrence_repository.dart';
 import '../../core/data/sicrocampo_export_service.dart';
 import '../../domain/models/field_note.dart';
 import '../../domain/models/field_photo.dart';
 import '../../domain/models/forensic_case_metadata.dart';
+import '../../domain/models/official_document.dart';
 import '../../domain/models/occurrence.dart';
 import '../../domain/models/trace_record.dart';
 import '../../domain/models/victim_record.dart';
@@ -22,6 +24,7 @@ import '../../features/victims/victims_screen.dart';
 import '../../shared/widgets/empty_state.dart';
 import '../../shared/widgets/module_tile.dart';
 import '../../shared/widgets/status_chip.dart';
+import '../../shared/utils/share_origin.dart';
 import 'occurrence_closure_screen.dart';
 import 'occurrence_delete_flow.dart';
 
@@ -29,11 +32,13 @@ class OccurrenceDashboardScreen extends StatefulWidget {
   const OccurrenceDashboardScreen({
     required this.repository,
     required this.occurrenceId,
+    this.officialDocumentRepository,
     super.key,
   });
 
   final OccurrenceRepository repository;
   final String occurrenceId;
+  final OfficialDocumentRepository? officialDocumentRepository;
 
   @override
   State<OccurrenceDashboardScreen> createState() =>
@@ -48,7 +53,12 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.repository,
+      listenable: widget.officialDocumentRepository == null
+          ? widget.repository
+          : Listenable.merge([
+              widget.repository,
+              widget.officialDocumentRepository!,
+            ]),
       builder: (context, _) {
         final occurrence = widget.repository.findById(widget.occurrenceId);
         if (occurrence == null) {
@@ -61,6 +71,7 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
           );
         }
         final operational = occurrence.operationalProgress;
+        final linkedOfficialDocuments = _linkedOfficialDocuments(occurrence.id);
         return Scaffold(
           appBar: AppBar(
             title: const Text('Dossie operacional'),
@@ -247,7 +258,8 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
                       onTap: () => _openVehicles(context, occurrence),
                     ),
                   ],
-                ] else ...[
+                ] else if (occurrence.metadata.type ==
+                    ForensicCaseType.property) ...[
                   const SizedBox(height: 10),
                   ModuleTile(
                     icon: Icons.domain_verification_outlined,
@@ -255,6 +267,60 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
                     subtitle: _traceSummary(occurrence),
                     trailingText: operational.stateFor('traces').label,
                     trailingColor: _stateColor(operational.stateFor('traces')),
+                    onTap: () => _openTraces(context, occurrence),
+                  ),
+                ] else if (occurrence.metadata.type ==
+                    ForensicCaseType.environmental) ...[
+                  const SizedBox(height: 10),
+                  ModuleTile(
+                    icon: Icons.forest_outlined,
+                    title: 'Vestigios ambientais',
+                    subtitle: _traceSummary(occurrence),
+                    trailingText: operational.stateFor('traces').label,
+                    trailingColor: _stateColor(operational.stateFor('traces')),
+                    onTap: () => _openTraces(context, occurrence),
+                  ),
+                ] else if (occurrence.metadata.type ==
+                    ForensicCaseType.ballistics) ...[
+                  const SizedBox(height: 10),
+                  ModuleTile(
+                    icon: Icons.adjust_outlined,
+                    title: 'Material balistico',
+                    subtitle: _traceSummary(occurrence),
+                    trailingText: operational
+                        .stateFor(OperationalItemIds.ballisticTraces)
+                        .label,
+                    trailingColor: _stateColor(
+                      operational.stateFor(OperationalItemIds.ballisticTraces),
+                    ),
+                    onTap: () => _openTraces(context, occurrence),
+                  ),
+                ] else if (occurrence.metadata.type ==
+                    ForensicCaseType.audioImage) ...[
+                  const SizedBox(height: 10),
+                  ModuleTile(
+                    icon: Icons.perm_media_outlined,
+                    title: 'Midias e arquivos',
+                    subtitle: _traceSummary(occurrence),
+                    trailingText: operational.stateFor('traces').label,
+                    trailingColor: _stateColor(operational.stateFor('traces')),
+                    onTap: () => _openTraces(context, occurrence),
+                  ),
+                ] else if (occurrence.metadata.type ==
+                    ForensicCaseType.papiloscopy) ...[
+                  const SizedBox(height: 10),
+                  ModuleTile(
+                    icon: Icons.fingerprint,
+                    title: 'Vestigios papiloscopicos',
+                    subtitle: _traceSummary(occurrence),
+                    trailingText: operational
+                        .stateFor(OperationalItemIds.papiloscopicTraces)
+                        .label,
+                    trailingColor: _stateColor(
+                      operational.stateFor(
+                        OperationalItemIds.papiloscopicTraces,
+                      ),
+                    ),
                     onTap: () => _openTraces(context, occurrence),
                   ),
                 ],
@@ -278,6 +344,21 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
                   trailingColor: _stateColor(operational.stateFor('notes')),
                   onTap: () => _openNotes(context, occurrence),
                 ),
+                if (linkedOfficialDocuments.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  ModuleTile(
+                    icon: Icons.mark_email_read_outlined,
+                    title: 'Oficios vinculados',
+                    subtitle:
+                        '${linkedOfficialDocuments.length} oficio(s) anexado(s) ao dossie',
+                    trailingText: 'ver',
+                    trailingColor: AppColors.gold,
+                    onTap: () => _showLinkedOfficialDocuments(
+                      context,
+                      linkedOfficialDocuments,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 ModuleTile(
                   icon: Icons.archive_outlined,
@@ -428,6 +509,54 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
     );
   }
 
+  List<OfficialDocument> _linkedOfficialDocuments(String occurrenceId) {
+    final repository = widget.officialDocumentRepository;
+    if (repository == null) {
+      return const [];
+    }
+    return repository.documents
+        .where((document) => document.linkedOccurrenceId == occurrenceId)
+        .toList(growable: false);
+  }
+
+  Future<void> _showLinkedOfficialDocuments(
+    BuildContext context,
+    List<OfficialDocument> documents,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.panel,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (context) {
+        return SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+            shrinkWrap: true,
+            children: [
+              Text(
+                'Oficios vinculados',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 12),
+              for (final document in documents)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.description_outlined),
+                    title: Text(document.displayTitle),
+                    subtitle: Text(document.displaySubtitle),
+                    trailing: Text(document.status.label),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _confirmDeleteOccurrence(
     BuildContext context,
     FieldOccurrence occurrence,
@@ -536,7 +665,10 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
     progressDialogOpen = true;
 
     try {
-      final result = await _exportService.exportOccurrence(occurrence);
+      final result = await _exportService.exportOccurrence(
+        occurrence,
+        officialDocuments: _linkedOfficialDocuments(occurrence.id),
+      );
 
       if (context.mounted && progressDialogOpen) {
         Navigator.of(context, rootNavigator: true).pop();
@@ -595,12 +727,17 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
       return;
     }
 
+    if (!context.mounted) {
+      return;
+    }
+    final shareOrigin = sharePositionOriginFor(context);
     await SharePlus.instance.share(
       ShareParams(
         title: 'Compartilhar .sicroapp',
         subject: result.fileName,
         text:
             'Pacote SICRO Operacional gerado offline. Hash SHA256: ${result.sha256}',
+        sharePositionOrigin: shareOrigin,
         files: [
           XFile(
             result.file.path,
@@ -638,6 +775,12 @@ class _OccurrenceDashboardScreenState extends State<OccurrenceDashboardScreen> {
                   value:
                       '${result.photosIncluded}/${result.photosTotal} incluida(s)',
                 ),
+                if (result.officialDocumentsTotal > 0)
+                  _ExportInfoRow(
+                    label: 'Oficios',
+                    value:
+                        '${result.officialDocumentsIncluded}/${result.officialDocumentsTotal} incluido(s)',
+                  ),
                 _ExportInfoRow(
                   label: 'Conteudo',
                   value: '${result.entryCount} arquivo(s) no pacote',
@@ -701,7 +844,7 @@ String _vehicleSummary(FieldOccurrence occurrence) {
     if (occurrence.metadata.type == ForensicCaseType.violentDeath) {
       return 'Use apenas se o veiculo for ambiente ou elemento relevante';
     }
-    return 'Placa, cor, avarias, posicao final e fotos';
+    return 'Placa, ponto de impacto, avarias, posicao final e fotos';
   }
 
   final linkedPhotos = occurrence.vehicles.fold<int>(
@@ -731,8 +874,12 @@ String _checklistSummary(FieldOccurrence occurrence) {
 String _checklistTitle(FieldOccurrence occurrence) {
   return switch (occurrence.metadata.type) {
     ForensicCaseType.traffic => 'Checklist de transito',
-    ForensicCaseType.violentDeath => 'Checklist de morte violenta',
+    ForensicCaseType.violentDeath => 'Checklist de local de crime',
     ForensicCaseType.property => 'Checklist de patrimonio',
+    ForensicCaseType.environmental => 'Checklist ambiental',
+    ForensicCaseType.ballistics => 'Checklist de balistica',
+    ForensicCaseType.audioImage => 'Checklist de audio e imagem',
+    ForensicCaseType.papiloscopy => 'Checklist de papiloscopia',
   };
 }
 
@@ -794,7 +941,74 @@ String _traceSummary(FieldOccurrence occurrence) {
         null => 'Vestigios patrimoniais relevantes',
       };
     }
-    return 'Frenagem, arrasto, fragmentos, fluidos e danos';
+    if (occurrence.metadata.type == ForensicCaseType.environmental) {
+      return switch (occurrence.metadata.environmentalNature) {
+        EnvironmentalNature.deforestation =>
+          'Supressao vegetal, tocos, material lenhoso e area afetada',
+        EnvironmentalNature.animalAbuse =>
+          'Condicao animal, lesoes, ambiente e vestigios biologicos',
+        EnvironmentalNature.waterPollution =>
+          'Efluente, corpo hidrico, amostras e fauna/flora afetadas',
+        EnvironmentalNature.forestFire =>
+          'Indicadores de queima, foco, fuligem e danos ambientais',
+        EnvironmentalNature.veterinaryNecropsy =>
+          'Cadaver animal, lesoes, amostras e cadeia de custodia',
+        EnvironmentalNature.other =>
+          'Vestigios ambientais, amostras e documentos relevantes',
+        null => 'Vestigios ambientais relevantes',
+      };
+    }
+    if (occurrence.metadata.type == ForensicCaseType.ballistics) {
+      return switch (occurrence.metadata.ballisticsNature) {
+        BallisticsNature.ballisticComparison =>
+          'Armas, estojos, projeteis e padroes balisticos',
+        BallisticsNature.gsrCollection =>
+          'Amostras GSR, vestes e superficies de coleta',
+        BallisticsNature.firearmEfficiency =>
+          'Armas de fogo, funcionamento, avarias e padroes',
+        BallisticsNature.ammunitionEfficiency =>
+          'Cartuchos, estojos, projeteis e material remanescente',
+        BallisticsNature.other => 'Material balistico relevante',
+        null => 'Material balistico relevante',
+      };
+    }
+    if (occurrence.metadata.type == ForensicCaseType.audioImage) {
+      return switch (occurrence.metadata.audioImageNature) {
+        AudioImageNature.contentAnalysis =>
+          'Videos, imagens, trechos, frames e eventos de interesse',
+        AudioImageNature.imageEnhancement =>
+          'Imagens/videos originais, recortes, quadros e arquivos melhorados',
+        AudioImageNature.imageRecognition =>
+          'Imagens questionadas, padroes e elementos de reconhecimento',
+        AudioImageNature.facialComparison =>
+          'Imagens faciais questionadas e material padrao',
+        AudioImageNature.imageEditVerification =>
+          'Arquivos originais, metadados e estrutura para autenticidade',
+        AudioImageNature.speakerComparison =>
+          'Audios questionados, padrao vocal e trechos comparaveis',
+        AudioImageNature.cctvPreservation =>
+          'DVR/NVR, cameras, midias e arquivos extraidos',
+        AudioImageNature.statureEstimation =>
+          'Imagens, frames, referencias metricas e padroes',
+        AudioImageNature.other => 'Midias e arquivos multimidia relevantes',
+        null => 'Midias e arquivos multimidia relevantes',
+      };
+    }
+    if (occurrence.metadata.type == ForensicCaseType.papiloscopy) {
+      return switch (occurrence.metadata.papiloscopyNature) {
+        PapiloscopyNature.criminalIdentification =>
+          'Digitais, palmares, fotografia sinaletica e AFIS/ABIS',
+        PapiloscopyNature.crimeScenePrints =>
+          'Latentes, patentes, moldadas, suportes e decalques',
+        PapiloscopyNature.labPrints =>
+          'Suportes questionados, reagentes, revelacoes e lacres',
+        PapiloscopyNature.necropapiloscopy =>
+          'Registros necropapiloscopicos, falanges e tecnicas de pele',
+        PapiloscopyNature.other => 'Vestigios papiloscopicos relevantes',
+        null => 'Vestigios papiloscopicos relevantes',
+      };
+    }
+    return 'Frenagem, derrapagem, sulcagem, arrasto e fragmentos';
   }
 
   final counts = <String, int>{};
@@ -842,6 +1056,18 @@ String _measurementSummary(FieldOccurrence occurrence) {
   if (occurrence.measurements.isEmpty) {
     if (occurrence.metadata.type == ForensicCaseType.property) {
       return 'Dimensoes, extensao de dano ou area afetada';
+    }
+    if (occurrence.metadata.type == ForensicCaseType.environmental) {
+      return 'Area, perimetro, distancias e pontos de coleta';
+    }
+    if (occurrence.metadata.type == ForensicCaseType.ballistics) {
+      return 'Calibre, dimensoes, massa e referencias tecnicas';
+    }
+    if (occurrence.metadata.type == ForensicCaseType.audioImage) {
+      return 'Tempos, frames, duracoes, dimensoes e referencias metricas';
+    }
+    if (occurrence.metadata.type == ForensicCaseType.papiloscopy) {
+      return 'Escalas, dimensoes de suporte e referencias tecnicas';
     }
     return 'Ponto A/B, valor, unidade e observacao';
   }
@@ -952,6 +1178,7 @@ IconData _stepIcon(String id) {
     'biological_traces' => Icons.biotech_outlined,
     'ballistic_traces' => Icons.gps_fixed_outlined,
     'weapons_objects' => Icons.construction_outlined,
+    'papiloscopic_traces' => Icons.fingerprint,
     'measurements' => Icons.straighten_outlined,
     'notes' => Icons.notes_outlined,
     'export' => Icons.archive_outlined,
@@ -971,6 +1198,10 @@ const _ballisticDashboardTraceTypes = {
   TraceType.ballisticCase,
   TraceType.projectile,
   TraceType.perforation,
+  TraceType.cartridge,
+  TraceType.ballisticStandard,
+  TraceType.gsrSample,
+  TraceType.firearm,
 };
 
 const _weaponObjectDashboardTraceTypes = {

@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../domain/models/field_photo.dart';
+import '../../domain/models/official_document.dart';
 import '../../domain/models/occurrence.dart';
 import 'sicrocampo_package_contract.dart';
 
@@ -20,6 +21,9 @@ class SicroCampoExportResult {
     required this.photosTotal,
     required this.photosIncluded,
     required this.photosMissing,
+    required this.officialDocumentsTotal,
+    required this.officialDocumentsIncluded,
+    required this.officialDocumentsMissing,
     required this.warnings,
     required this.generatedAt,
   });
@@ -33,6 +37,9 @@ class SicroCampoExportResult {
   final int photosTotal;
   final int photosIncluded;
   final int photosMissing;
+  final int officialDocumentsTotal;
+  final int officialDocumentsIncluded;
+  final int officialDocumentsMissing;
   final List<String> warnings;
   final DateTime generatedAt;
 
@@ -52,8 +59,9 @@ class SicroCampoExportService {
   final JsonEncoder _encoder = const JsonEncoder.withIndent('  ');
 
   Future<SicroCampoExportResult> exportOccurrence(
-    FieldOccurrence occurrence,
-  ) async {
+    FieldOccurrence occurrence, {
+    List<OfficialDocument> officialDocuments = const [],
+  }) async {
     final generatedAt = _clock();
     final exportedOccurrence = occurrence.copyWith(
       status: OccurrenceStatus.exported,
@@ -65,6 +73,8 @@ class SicroCampoExportService {
     final entries = <String>[];
     var photosIncluded = 0;
     var photosMissing = 0;
+    var officialDocumentsIncluded = 0;
+    var officialDocumentsMissing = 0;
 
     void addBytes(String path, List<int> bytes) {
       archive.addFile(ArchiveFile.bytes(path, bytes));
@@ -79,6 +89,11 @@ class SicroCampoExportService {
 
     archive.addFile(
       ArchiveFile.directory(SicroCampoPackageContract.photosDirectory),
+    );
+    archive.addFile(
+      ArchiveFile.directory(
+        SicroCampoPackageContract.officialDocumentsDirectory,
+      ),
     );
 
     final packagedPhotos = <Map<String, Object?>>[];
@@ -101,6 +116,46 @@ class SicroCampoExportService {
       packagedPhotos.add(
         _photoJson(
           photo,
+          entryPath,
+          available: true,
+          packagedSha256: hashes[entryPath],
+        ),
+      );
+    }
+
+    final packagedOfficialDocuments = <Map<String, Object?>>[];
+    for (final document in officialDocuments) {
+      final imagePath = document.imagePath.trim();
+      final entryPath = imagePath.isEmpty
+          ? ''
+          : '${SicroCampoPackageContract.officialDocumentsDirectory}'
+                '${_safeName(document.id)}${_extensionFor(imagePath)}';
+
+      if (imagePath.isEmpty) {
+        officialDocumentsMissing++;
+        warnings.add('Oficio sem imagem vinculada: ${document.id}');
+        packagedOfficialDocuments.add(
+          _officialDocumentJson(document, entryPath, available: false),
+        );
+        continue;
+      }
+
+      final file = File(imagePath);
+      if (!await file.exists()) {
+        officialDocumentsMissing++;
+        warnings.add('Imagem do oficio nao encontrada: ${document.id}');
+        packagedOfficialDocuments.add(
+          _officialDocumentJson(document, entryPath, available: false),
+        );
+        continue;
+      }
+
+      final bytes = await file.readAsBytes();
+      addBytes(entryPath, bytes);
+      officialDocumentsIncluded++;
+      packagedOfficialDocuments.add(
+        _officialDocumentJson(
+          document,
           entryPath,
           available: true,
           packagedSha256: hashes[entryPath],
@@ -161,6 +216,10 @@ class SicroCampoExportService {
       SicroCampoPackageContract.notes,
       exportedOccurrence.notes.map((note) => note.toJson()).toList(),
     );
+    addJson(
+      SicroCampoPackageContract.officialDocuments,
+      packagedOfficialDocuments,
+    );
     addJson(SicroCampoPackageContract.operational, {
       ...exportedOccurrence.operationalProgress.toJson(),
       'sessao': exportedOccurrence.operationalSessionToJson(),
@@ -173,7 +232,13 @@ class SicroCampoExportService {
     ];
     addJson(
       SicroCampoPackageContract.manifest,
-      _manifestJson(exportedOccurrence, generatedAt, finalEntries, warnings),
+      _manifestJson(
+        exportedOccurrence,
+        generatedAt,
+        finalEntries,
+        warnings,
+        officialDocuments.length,
+      ),
     );
     final hashCount = hashes.length;
     addJson(SicroCampoPackageContract.hashes, _hashesJson(hashes));
@@ -196,6 +261,9 @@ class SicroCampoExportService {
       photosTotal: exportedOccurrence.photos.length,
       photosIncluded: photosIncluded,
       photosMissing: photosMissing,
+      officialDocumentsTotal: officialDocuments.length,
+      officialDocumentsIncluded: officialDocumentsIncluded,
+      officialDocumentsMissing: officialDocumentsMissing,
       warnings: warnings,
       generatedAt: generatedAt,
     );
@@ -233,6 +301,7 @@ class SicroCampoExportService {
     DateTime generatedAt,
     List<String> entries,
     List<String> warnings,
+    int officialDocumentsCount,
   ) {
     return {
       'formato': SicroCampoPackageContract.format,
@@ -242,6 +311,7 @@ class SicroCampoExportService {
       ],
       'extensoes_compativeis': SicroCampoPackageContract.compatibleExtensions,
       'versao': SicroCampoPackageContract.version,
+      'versoes_compativeis': SicroCampoPackageContract.compatibleVersions,
       'gerado_em': generatedAt.toIso8601String(),
       'ocorrencia': {
         'id': occurrence.id,
@@ -266,6 +336,7 @@ class SicroCampoExportService {
         'vestigios': occurrence.traces.length,
         'medicoes': occurrence.measurements.length,
         'observacoes': occurrence.notes.length,
+        'oficios': officialDocumentsCount,
       },
       'arquivos': entries,
       'avisos': warnings,
@@ -301,6 +372,22 @@ class SicroCampoExportService {
       'sha256_original': photo.sha256,
       'entidade_vinculada': photo.linkedEntityId,
       'arquivo_disponivel': available,
+    };
+  }
+
+  Map<String, Object?> _officialDocumentJson(
+    OfficialDocument document,
+    String entryPath, {
+    required bool available,
+    String? packagedSha256,
+  }) {
+    return {
+      ...document.toJson(),
+      'imagem_arquivo_original': document.imagePath,
+      'imagem_arquivo': entryPath,
+      'imagem_disponivel': available,
+      'imagem_sha256': packagedSha256 ?? document.imageSha256,
+      'imagem_sha256_original': document.imageSha256,
     };
   }
 

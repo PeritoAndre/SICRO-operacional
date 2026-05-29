@@ -20,7 +20,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _registration = TextEditingController();
   final _organization = TextEditingController();
   final _unit = TextEditingController();
-  final Set<ForensicArea> _activeAreas = {ForensicArea.traffic};
+  final Set<ForensicArea> _activeAreas = ForensicArea.values.toSet();
   bool _saving = false;
 
   @override
@@ -279,8 +279,12 @@ class _AreaCards extends StatelessWidget {
   String _subtitle(ForensicArea area) {
     return switch (area) {
       ForensicArea.traffic => 'Transito fica pronto para uso agora',
-      ForensicArea.violentDeath => 'Visibilidade preparada para modulo futuro',
+      ForensicArea.violentDeath => 'Fluxo de local de crime contra a vida',
       ForensicArea.property => 'Visibilidade preparada para modulo futuro',
+      ForensicArea.environmental => 'Pericia ambiental com checklist POP',
+      ForensicArea.ballistics => 'Balistica Forense com checklist POP',
+      ForensicArea.audioImage => 'Audio e Imagem com checklist POP',
+      ForensicArea.papiloscopy => 'Papiloscopia com checklist POP',
     };
   }
 
@@ -289,6 +293,10 @@ class _AreaCards extends StatelessWidget {
       ForensicArea.traffic => Icons.traffic_outlined,
       ForensicArea.violentDeath => Icons.health_and_safety_outlined,
       ForensicArea.property => Icons.domain_verification_outlined,
+      ForensicArea.environmental => Icons.forest_outlined,
+      ForensicArea.ballistics => Icons.adjust_outlined,
+      ForensicArea.audioImage => Icons.perm_media_outlined,
+      ForensicArea.papiloscopy => Icons.fingerprint,
     };
   }
 }

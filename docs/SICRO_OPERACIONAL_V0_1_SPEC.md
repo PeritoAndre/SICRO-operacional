@@ -171,7 +171,9 @@ Campos:
 - data/hora de chegada;
 - data/hora de encerramento;
 - peritos presentes;
-- equipe de apoio.
+- tecnico pericial;
+- equipe policial/batalhao;
+- comandante ou responsavel policial pela preservacao.
 
 ### 4. Localizacao
 
@@ -428,7 +430,7 @@ BO_1234_2026.sicroapp
 ```json
 {
   "formato": "sicroapp",
-  "versao": "0.1",
+  "versao": "0.2",
   "gerado_em": "2026-05-19T12:00:00-03:00",
   "app": {
     "nome": "SICRO Operacional",
@@ -536,7 +538,7 @@ Opcionalmente, quando houver coordenada GPS, o SICRO desktop pode:
 
 - Importador em Python usando `zipfile` e `json`.
 - Validacao de `manifest.json`.
-- Validacao de versao `0.1`.
+- Validacao de versao `0.2`, mantendo leitura tolerante de `0.1`.
 - Conferencia opcional de hashes.
 - Copia/extração temporaria controlada das fotos para visualizacao.
 

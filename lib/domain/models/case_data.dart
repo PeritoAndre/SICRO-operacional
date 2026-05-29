@@ -10,6 +10,8 @@ class CaseData {
     this.reference = '',
     this.peritians = '',
     this.supportTeam = '',
+    this.policeTeam = '',
+    this.policeCommander = '',
     this.calledAt,
     this.arrivedAt,
     this.closedAt,
@@ -25,6 +27,8 @@ class CaseData {
   final String reference;
   final String peritians;
   final String supportTeam;
+  final String policeTeam;
+  final String policeCommander;
   final DateTime? calledAt;
   final DateTime? arrivedAt;
   final DateTime? closedAt;
@@ -51,6 +55,8 @@ class CaseData {
     String? reference,
     String? peritians,
     String? supportTeam,
+    String? policeTeam,
+    String? policeCommander,
     DateTime? calledAt,
     DateTime? arrivedAt,
     DateTime? closedAt,
@@ -66,6 +72,8 @@ class CaseData {
       reference: reference ?? this.reference,
       peritians: peritians ?? this.peritians,
       supportTeam: supportTeam ?? this.supportTeam,
+      policeTeam: policeTeam ?? this.policeTeam,
+      policeCommander: policeCommander ?? this.policeCommander,
       calledAt: calledAt ?? this.calledAt,
       arrivedAt: arrivedAt ?? this.arrivedAt,
       closedAt: closedAt ?? this.closedAt,
@@ -83,7 +91,10 @@ class CaseData {
       'logradouro': street,
       'referencia': reference,
       'peritos': peritians,
+      'tecnico_pericial': supportTeam,
       'equipe_apoio': supportTeam,
+      'equipe_policial': policeTeam,
+      'comandante_policial': policeCommander,
       'acionamento_em': calledAt?.toIso8601String(),
       'chegada_em': arrivedAt?.toIso8601String(),
       'encerramento_em': closedAt?.toIso8601String(),
@@ -101,7 +112,12 @@ class CaseData {
       street: _string(json['logradouro']),
       reference: _string(json['referencia']),
       peritians: _string(json['peritos']),
-      supportTeam: _string(json['equipe_apoio']),
+      supportTeam: _string(
+        json['tecnico_pericial'],
+        fallback: _string(json['equipe_apoio']),
+      ),
+      policeTeam: _string(json['equipe_policial']),
+      policeCommander: _string(json['comandante_policial']),
       calledAt: _date(json['acionamento_em']),
       arrivedAt: _date(json['chegada_em']),
       closedAt: _date(json['encerramento_em']),
@@ -109,7 +125,9 @@ class CaseData {
   }
 }
 
-String _string(Object? value) => value is String ? value : '';
+String _string(Object? value, {String fallback = ''}) {
+  return value is String ? value : fallback;
+}
 
 DateTime? _date(Object? value) {
   if (value is! String || value.isEmpty) {

@@ -8,6 +8,7 @@ import '../../core/data/operational_statistics_service.dart';
 import '../../core/data/statistical_report_pdf_service.dart';
 import '../../domain/models/forensic_case_metadata.dart';
 import '../../domain/models/occurrence.dart';
+import '../../shared/utils/share_origin.dart';
 import '../../shared/widgets/empty_state.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -285,11 +286,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       return;
     }
 
+    if (!context.mounted) {
+      return;
+    }
+    final shareOrigin = sharePositionOriginFor(context);
     await SharePlus.instance.share(
       ShareParams(
         title: 'Compartilhar relatorio estatistico',
         subject: result.fileName,
         text: 'Relatorio estatistico operacional gerado no SICRO Operacional.',
+        sharePositionOrigin: shareOrigin,
         files: [
           XFile(
             result.file.path,

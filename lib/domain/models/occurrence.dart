@@ -67,6 +67,7 @@ class OperationalItemIds {
   static const biologicalTraces = 'biological_traces';
   static const ballisticTraces = 'ballistic_traces';
   static const weaponsObjects = 'weapons_objects';
+  static const papiloscopicTraces = 'papiloscopic_traces';
   static const measurements = 'measurements';
   static const notes = 'notes';
   static const export = 'export';
@@ -155,6 +156,7 @@ enum OccurrenceTimelineEventType {
   gpsCaptured('gps_capturado', 'GPS capturado'),
   firstPhoto('primeira_foto', 'Primeira foto'),
   exported('exportacao', 'Exportacao'),
+  imported('importacao', 'Importacao'),
   completed('conclusao', 'Conclusao'),
   reopened('reabertura', 'Reabertura'),
   statusChanged('status_alterado', 'Status alterado'),
@@ -693,6 +695,22 @@ class FieldOccurrence {
     return metadata.type == ForensicCaseType.property;
   }
 
+  bool get isEnvironmental {
+    return metadata.type == ForensicCaseType.environmental;
+  }
+
+  bool get isBallistics {
+    return metadata.type == ForensicCaseType.ballistics;
+  }
+
+  bool get isAudioImage {
+    return metadata.type == ForensicCaseType.audioImage;
+  }
+
+  bool get isPapiloscopy {
+    return metadata.type == ForensicCaseType.papiloscopy;
+  }
+
   bool get shouldShowVehicleModule {
     return metadata.type == ForensicCaseType.traffic ||
         metadata.sceneEnvironment == SceneEnvironment.vehicle ||
@@ -711,12 +729,32 @@ class FieldOccurrence {
     return traces.any((trace) => _weaponObjectTraceTypes.contains(trace.type));
   }
 
+  bool get hasMultimediaTrace {
+    return traces.any((trace) => _multimediaTraceTypes.contains(trace.type));
+  }
+
+  bool get hasPapiloscopicTrace {
+    return traces.any((trace) => _papiloscopyTraceTypes.contains(trace.type));
+  }
+
   OperationalProgress get operationalProgress {
     if (isViolentDeath) {
       return _violentDeathOperationalProgress();
     }
     if (isProperty) {
       return _propertyOperationalProgress();
+    }
+    if (isEnvironmental) {
+      return _environmentalOperationalProgress();
+    }
+    if (isBallistics) {
+      return _ballisticsOperationalProgress();
+    }
+    if (isAudioImage) {
+      return _audioImageOperationalProgress();
+    }
+    if (isPapiloscopy) {
+      return _papiloscopyOperationalProgress();
     }
     return _trafficOperationalProgress();
   }
@@ -866,8 +904,8 @@ class FieldOccurrence {
       if (!location.hasCoordinates) 'GPS nao capturado',
       if (!checklistFullyAnswered)
         pendingRequiredChecklistItems > 0
-            ? 'Checklist de morte violenta com obrigatorios pendentes'
-            : 'Checklist de morte violenta incompleto',
+            ? 'Checklist de local de crime com obrigatorios pendentes'
+            : 'Checklist de local de crime incompleto',
       if (photos.isEmpty) 'Nenhuma foto capturada',
       if (!victimsResolved) 'Nenhum corpo/vitima registrado',
       if (!tracesResolved) 'Nenhum vestigio cadastrado',
@@ -893,8 +931,9 @@ class FieldOccurrence {
       ),
       OperationalStep(
         id: OperationalItemIds.checklist,
-        title: 'Checklist de morte violenta',
-        description: 'Preservacao, corpo, vestigios e registro fotografico',
+        title: 'Checklist de local de crime',
+        description:
+            'Preservacao, local, corpo, vestigios e cadeia de custodia',
         state: _checklistState(),
       ),
       OperationalStep(
@@ -1078,6 +1117,354 @@ class FieldOccurrence {
     );
   }
 
+  OperationalProgress _environmentalOperationalProgress() {
+    final requiredItems = [
+      location.hasCoordinates,
+      checklistFullyAnswered,
+      photos.isNotEmpty,
+      tracesResolved,
+      measurementsResolved,
+      hasTextNote,
+      hasExportRecord,
+    ];
+    final completed = requiredItems.where((item) => item).length;
+    final percent = ((completed / requiredItems.length) * 100).round();
+    final pending = <String>[
+      if (!location.hasCoordinates) 'GPS nao capturado',
+      if (!checklistFullyAnswered)
+        pendingRequiredChecklistItems > 0
+            ? 'Checklist ambiental com obrigatorios pendentes'
+            : 'Checklist ambiental incompleto',
+      if (photos.isEmpty) 'Nenhuma foto capturada',
+      if (!tracesResolved) 'Nenhum vestigio ambiental cadastrado',
+      if (!measurementsResolved) 'Nenhuma medicao registrada',
+      if (!hasTextNote) 'Observacoes finais nao preenchidas',
+      if (!hasExportRecord) 'Ocorrencia ainda nao exportada',
+    ];
+
+    return OperationalProgress(
+      percent: percent,
+      completedRequiredItems: completed,
+      totalRequiredItems: requiredItems.length,
+      pendingItems: pending,
+      notApplicableItems: notApplicableItems,
+      steps: [
+        OperationalStep(
+          id: OperationalItemIds.caseData,
+          title: 'Dados do caso',
+          description: 'BO, local, equipe e referencias do atendimento',
+          state: _caseDataState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.gps,
+          title: 'GPS',
+          description: 'Coordenada pericial dos pontos relevantes',
+          state: location.hasCoordinates
+              ? OperationalItemState.completed
+              : OperationalItemState.pending,
+        ),
+        OperationalStep(
+          id: OperationalItemIds.checklist,
+          title: 'Checklist ambiental',
+          description: 'Planejamento, local, dano, amostras e custodia',
+          state: _checklistState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.photos,
+          title: 'Fotos categorizadas',
+          description: 'Visao geral, aproximacao, detalhes e amostras',
+          state: _photosState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.traces,
+          title: 'Vestigios ambientais',
+          description: 'Supressao, efluente, queima, animal ou amostra',
+          state: _moduleState(
+            itemId: OperationalItemIds.traces,
+            hasData: traces.isNotEmpty,
+          ),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.measurements,
+          title: 'Medicoes',
+          description: 'Area, distancia, perimetro e pontos amostrais',
+          state: _moduleState(
+            itemId: OperationalItemIds.measurements,
+            hasData: measurements.isNotEmpty,
+          ),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.notes,
+          title: 'Observacoes finais',
+          description: 'Descricao tecnica, limitacoes e providencias',
+          state: hasTextNote
+              ? OperationalItemState.completed
+              : notes.isEmpty
+              ? OperationalItemState.pending
+              : OperationalItemState.partial,
+        ),
+        OperationalStep(
+          id: OperationalItemIds.export,
+          title: 'Exportacao',
+          description: 'Pacote .sicroapp gerado para o desktop',
+          state: hasExportRecord
+              ? OperationalItemState.completed
+              : OperationalItemState.pending,
+        ),
+      ],
+    );
+  }
+
+  OperationalProgress _ballisticsOperationalProgress() {
+    final requiredItems = [
+      checklistFullyAnswered,
+      photos.isNotEmpty,
+      tracesResolved,
+      hasTextNote,
+      hasExportRecord,
+    ];
+    final completed = requiredItems.where((item) => item).length;
+    final percent = ((completed / requiredItems.length) * 100).round();
+    final pending = <String>[
+      if (!checklistFullyAnswered)
+        pendingRequiredChecklistItems > 0
+            ? 'Checklist de balistica com obrigatorios pendentes'
+            : 'Checklist de balistica incompleto',
+      if (photos.isEmpty) 'Nenhuma foto capturada',
+      if (!tracesResolved) 'Nenhum vestigio/material balistico cadastrado',
+      if (!hasTextNote) 'Observacoes finais nao preenchidas',
+      if (!hasExportRecord) 'Ocorrencia ainda nao exportada',
+    ];
+
+    return OperationalProgress(
+      percent: percent,
+      completedRequiredItems: completed,
+      totalRequiredItems: requiredItems.length,
+      pendingItems: pending,
+      notApplicableItems: notApplicableItems,
+      steps: [
+        OperationalStep(
+          id: OperationalItemIds.caseData,
+          title: 'Dados do caso',
+          description: 'BO, requisicao, origem e referencias do material',
+          state: _caseDataState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.checklist,
+          title: 'Checklist de balistica',
+          description: 'Recebimento, seguranca, material, GSR e custodia',
+          state: _checklistState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.photos,
+          title: 'Fotos categorizadas',
+          description: 'Embalagens, lacres, armas, municoes e vestigios',
+          state: _photosState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.ballisticTraces,
+          title: 'Vestigios/material balistico',
+          description: 'Armas, cartuchos, estojos, projeteis, GSR e padroes',
+          state: _traceGroupState(hasData: traces.isNotEmpty),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.measurements,
+          title: 'Medicoes',
+          description: 'Calibres, dimensoes, massa e referencias tecnicas',
+          state: _moduleState(
+            itemId: OperationalItemIds.measurements,
+            hasData: measurements.isNotEmpty,
+          ),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.notes,
+          title: 'Observacoes finais',
+          description: 'Intercorrencias, limitacoes e destino do material',
+          state: hasTextNote
+              ? OperationalItemState.completed
+              : notes.isEmpty
+              ? OperationalItemState.pending
+              : OperationalItemState.partial,
+        ),
+        OperationalStep(
+          id: OperationalItemIds.export,
+          title: 'Exportacao',
+          description: 'Pacote .sicroapp gerado para o desktop',
+          state: hasExportRecord
+              ? OperationalItemState.completed
+              : OperationalItemState.pending,
+        ),
+      ],
+    );
+  }
+
+  OperationalProgress _audioImageOperationalProgress() {
+    final requiredItems = [
+      checklistFullyAnswered,
+      photos.isNotEmpty,
+      tracesResolved,
+      hasTextNote,
+      hasExportRecord,
+    ];
+    final completed = requiredItems.where((item) => item).length;
+    final percent = ((completed / requiredItems.length) * 100).round();
+    final pending = <String>[
+      if (!checklistFullyAnswered)
+        pendingRequiredChecklistItems > 0
+            ? 'Checklist de audio e imagem com obrigatorios pendentes'
+            : 'Checklist de audio e imagem incompleto',
+      if (photos.isEmpty) 'Nenhuma foto capturada',
+      if (!tracesResolved) 'Nenhuma midia/arquivo registrado',
+      if (!hasTextNote) 'Observacoes finais nao preenchidas',
+      if (!hasExportRecord) 'Ocorrencia ainda nao exportada',
+    ];
+
+    return OperationalProgress(
+      percent: percent,
+      completedRequiredItems: completed,
+      totalRequiredItems: requiredItems.length,
+      pendingItems: pending,
+      notApplicableItems: notApplicableItems,
+      steps: [
+        OperationalStep(
+          id: OperationalItemIds.caseData,
+          title: 'Dados do caso',
+          description: 'BO, requisicao, origem e delimitacao do exame',
+          state: _caseDataState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.checklist,
+          title: 'Checklist de audio e imagem',
+          description: 'Custodia, preservacao, adequabilidade e processamento',
+          state: _checklistState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.photos,
+          title: 'Fotos documentais',
+          description: 'Embalagens, lacres, midias, telas e equipamentos',
+          state: _photosState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.traces,
+          title: 'Midias e arquivos',
+          description: 'Arquivos, CFTV, audio, video, imagens e padroes',
+          state: _traceGroupState(hasData: traces.isNotEmpty),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.measurements,
+          title: 'Medicoes',
+          description: 'Tempos, quadros, referencias, estatura ou dimensoes',
+          state: _moduleState(
+            itemId: OperationalItemIds.measurements,
+            hasData: measurements.isNotEmpty,
+          ),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.notes,
+          title: 'Observacoes finais',
+          description: 'Limitacoes, quesitos, intervalos e encaminhamentos',
+          state: hasTextNote
+              ? OperationalItemState.completed
+              : notes.isEmpty
+              ? OperationalItemState.pending
+              : OperationalItemState.partial,
+        ),
+        OperationalStep(
+          id: OperationalItemIds.export,
+          title: 'Exportacao',
+          description: 'Pacote .sicroapp gerado para o desktop',
+          state: hasExportRecord
+              ? OperationalItemState.completed
+              : OperationalItemState.pending,
+        ),
+      ],
+    );
+  }
+
+  OperationalProgress _papiloscopyOperationalProgress() {
+    final requiredItems = [
+      checklistFullyAnswered,
+      photos.isNotEmpty,
+      tracesResolved,
+      hasTextNote,
+      hasExportRecord,
+    ];
+    final completed = requiredItems.where((item) => item).length;
+    final percent = ((completed / requiredItems.length) * 100).round();
+    final pending = <String>[
+      if (!checklistFullyAnswered)
+        pendingRequiredChecklistItems > 0
+            ? 'Checklist de papiloscopia com obrigatorios pendentes'
+            : 'Checklist de papiloscopia incompleto',
+      if (photos.isEmpty) 'Nenhuma foto capturada',
+      if (!tracesResolved) 'Nenhum vestigio/registro papiloscopico cadastrado',
+      if (!hasTextNote) 'Observacoes finais nao preenchidas',
+      if (!hasExportRecord) 'Ocorrencia ainda nao exportada',
+    ];
+
+    return OperationalProgress(
+      percent: percent,
+      completedRequiredItems: completed,
+      totalRequiredItems: requiredItems.length,
+      pendingItems: pending,
+      notApplicableItems: notApplicableItems,
+      steps: [
+        OperationalStep(
+          id: OperationalItemIds.caseData,
+          title: 'Dados do caso',
+          description: 'BO, requisicao, pessoa/material e origem do exame',
+          state: _caseDataState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.checklist,
+          title: 'Checklist de papiloscopia',
+          description:
+              'Biosseguranca, coleta, revelacao, identificacao e custodia',
+          state: _checklistState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.photos,
+          title: 'Fotos documentais',
+          description: 'Local, suportes, impressoes, lacres e registros',
+          state: _photosState(),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.papiloscopicTraces,
+          title: 'Vestigios papiloscopicos',
+          description: 'Impressoes, suportes, decalques, fichas e registros',
+          state: _traceGroupState(hasData: traces.isNotEmpty),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.measurements,
+          title: 'Medicoes',
+          description: 'Escalas, dimensoes de suporte e referencias tecnicas',
+          state: _moduleState(
+            itemId: OperationalItemIds.measurements,
+            hasData: measurements.isNotEmpty,
+          ),
+        ),
+        OperationalStep(
+          id: OperationalItemIds.notes,
+          title: 'Observacoes finais',
+          description: 'Peculiaridades, limitacoes e qualidade da coleta',
+          state: hasTextNote
+              ? OperationalItemState.completed
+              : notes.isEmpty
+              ? OperationalItemState.pending
+              : OperationalItemState.partial,
+        ),
+        OperationalStep(
+          id: OperationalItemIds.export,
+          title: 'Exportacao',
+          description: 'Pacote .sicroapp gerado para o desktop',
+          state: hasExportRecord
+              ? OperationalItemState.completed
+              : OperationalItemState.pending,
+        ),
+      ],
+    );
+  }
+
   FieldOccurrence copyWith({
     DateTime? updatedAt,
     OccurrenceStatus? status,
@@ -1220,6 +1607,8 @@ class FieldOccurrence {
       caseData.reference,
       caseData.peritians,
       caseData.supportTeam,
+      caseData.policeTeam,
+      caseData.policeCommander,
     ].where((value) => value.trim().isNotEmpty).length;
     if (filled >= 3) {
       return OperationalItemState.completed;
@@ -1296,6 +1685,29 @@ const _ballisticTraceTypes = {
   TraceType.ballisticCase,
   TraceType.projectile,
   TraceType.perforation,
+  TraceType.cartridge,
+  TraceType.ballisticStandard,
+  TraceType.gsrSample,
+  TraceType.firearm,
+};
+
+const _multimediaTraceTypes = {
+  TraceType.multimediaFile,
+  TraceType.cctvDevice,
+  TraceType.storageMedia,
+  TraceType.audioRecord,
+  TraceType.videoRecord,
+  TraceType.imageRecord,
+};
+
+const _papiloscopyTraceTypes = {
+  TraceType.latentPrint,
+  TraceType.patentPrint,
+  TraceType.plasticPrint,
+  TraceType.fingerprintRecord,
+  TraceType.palmprintRecord,
+  TraceType.papillaryFragment,
+  TraceType.necroFingerprint,
 };
 
 const _weaponObjectTraceTypes = {
@@ -1352,6 +1764,10 @@ String _natureLabel(ForensicCaseMetadata metadata) {
     ForensicCaseType.traffic => metadata.trafficNature?.label ?? '',
     ForensicCaseType.violentDeath => metadata.violentDeathNature?.label ?? '',
     ForensicCaseType.property => metadata.propertyNature?.label ?? '',
+    ForensicCaseType.environmental => metadata.environmentalNature?.label ?? '',
+    ForensicCaseType.ballistics => metadata.ballisticsNature?.label ?? '',
+    ForensicCaseType.audioImage => metadata.audioImageNature?.label ?? '',
+    ForensicCaseType.papiloscopy => metadata.papiloscopyNature?.label ?? '',
   };
 }
 

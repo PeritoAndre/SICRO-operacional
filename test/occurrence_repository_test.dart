@@ -48,6 +48,14 @@ void main() {
       occurrence.effectiveTimeline.map((event) => event.type),
       contains(OccurrenceTimelineEventType.gpsStarted),
     );
+    expect(
+      occurrence.checklist.map((item) => item.id),
+      containsAll([
+        'metodo_croqui_registrado',
+        'levantamento_drone_realizado',
+        'croqui_manual_trena',
+      ]),
+    );
 
     await repository.updateCaseData(
       occurrence.id,
@@ -734,7 +742,7 @@ void main() {
     expect(snapshot.firstOccurrenceAt, DateTime(2026, 5, 10, 8));
     expect(snapshot.lastOccurrenceAt, DateTime(2026, 5, 20, 14));
     expect(_distributionLabels(snapshot.byType), [
-      'Morte violenta',
+      'Local de crime',
       'Transito',
     ]);
     expect(snapshot.byNature.first.label, 'Colisao');

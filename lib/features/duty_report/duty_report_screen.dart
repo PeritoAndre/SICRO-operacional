@@ -6,6 +6,7 @@ import '../../core/data/app_settings_repository.dart';
 import '../../core/data/duty_report_pdf_service.dart';
 import '../../core/data/occurrence_repository.dart';
 import '../../domain/models/occurrence.dart';
+import '../../shared/utils/share_origin.dart';
 import '../../shared/widgets/empty_state.dart';
 
 class DutyReportScreen extends StatefulWidget {
@@ -23,6 +24,8 @@ class DutyReportScreen extends StatefulWidget {
 }
 
 class _DutyReportScreenState extends State<DutyReportScreen> {
+  static const _postDutyGrace = Duration(hours: 2);
+
   final _service = DutyReportPdfService();
   final _expertName = TextEditingController();
   final _role = TextEditingController();
@@ -32,6 +35,7 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
 
   late DateTime _startedAt;
   late DateTime _finishedAt;
+  DutyReportTemplate _template = DutyReportTemplate.operational;
   bool _generating = false;
 
   @override
@@ -63,7 +67,11 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
       listenable: widget.repository,
       builder: (context, _) {
         final occurrences = widget.repository.occurrences;
-        final selected = _selectedOccurrences(occurrences);
+        final visibleOccurrences = _visibleOccurrences(occurrences);
+        final graceOccurrences = visibleOccurrences
+            .where(_isPostDutyGraceOccurrence)
+            .length;
+        final selected = _selectedOccurrences(visibleOccurrences);
         return Scaffold(
           appBar: AppBar(title: const Text('Relatorio de plantao')),
           body: SafeArea(
@@ -72,6 +80,11 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               children: [
                 const _ReportIntroCard(),
+                const SizedBox(height: 12),
+                _ReportTemplateCard(
+                  template: _template,
+                  onChanged: (template) => setState(() => _template = template),
+                ),
                 const SizedBox(height: 12),
                 _ShiftDataCard(
                   expertName: _expertName,
@@ -86,10 +99,17 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
                 const SizedBox(height: 14),
                 _OccurrenceSelectionHeader(
                   selectedCount: selected.length,
-                  totalCount: occurrences.length,
-                  onToggleAll: occurrences.isEmpty
+                  totalCount: visibleOccurrences.length,
+                  onToggleAll: visibleOccurrences.isEmpty
                       ? null
-                      : () => _toggleAll(occurrences),
+                      : () => _toggleAll(visibleOccurrences),
+                ),
+                const SizedBox(height: 8),
+                _DutyPeriodFilterNote(
+                  startedAt: _startedAt,
+                  finishedAt: _finishedAt,
+                  visibleCount: visibleOccurrences.length,
+                  graceCount: graceOccurrences,
                 ),
                 const SizedBox(height: 10),
                 if (occurrences.isEmpty)
@@ -99,12 +119,21 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
                     message:
                         'Crie ou importe ocorrencias neste aparelho para compor o relatorio de plantao.',
                   )
+                else if (visibleOccurrences.isEmpty)
+                  const EmptyState(
+                    icon: Icons.event_busy_outlined,
+                    title: 'Nenhuma ocorrencia no periodo',
+                    message:
+                        'Ajuste o intervalo do plantao para mostrar as ocorrencias iniciadas nele. A margem de 2h apos o fim ja esta incluida.',
+                  )
                 else
-                  for (final occurrence in occurrences)
+                  for (final occurrence in visibleOccurrences)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _SelectableOccurrenceCard(
                         occurrence: occurrence,
+                        startedAt: _occurrenceStartDate(occurrence),
+                        outsideWindow: _isPostDutyGraceOccurrence(occurrence),
                         selected: _selectedIds.contains(occurrence.id),
                         onChanged: (selected) =>
                             _setSelected(occurrence.id, selected),
@@ -139,6 +168,24 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
         );
       },
     );
+  }
+
+  List<FieldOccurrence> _visibleOccurrences(List<FieldOccurrence> occurrences) {
+    final graceEnd = _finishedAt.add(_postDutyGrace);
+    final filtered = occurrences.where((occurrence) {
+      final startedAt = _occurrenceStartDate(occurrence);
+      return !startedAt.isBefore(_startedAt) && !startedAt.isAfter(graceEnd);
+    }).toList();
+    filtered.sort(
+      (a, b) => _occurrenceStartDate(a).compareTo(_occurrenceStartDate(b)),
+    );
+    return filtered;
+  }
+
+  bool _isPostDutyGraceOccurrence(FieldOccurrence occurrence) {
+    final startedAt = _occurrenceStartDate(occurrence);
+    final graceEnd = _finishedAt.add(_postDutyGrace);
+    return startedAt.isAfter(_finishedAt) && !startedAt.isAfter(graceEnd);
   }
 
   List<FieldOccurrence> _selectedOccurrences(
@@ -242,6 +289,7 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
           finishedAt: _finishedAt,
           observations: _observations.text.trim(),
           occurrences: selected,
+          template: _template,
         ),
       );
       if (!mounted) {
@@ -277,6 +325,7 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ReportInfoRow(label: 'Arquivo', value: result.fileName),
+                _ReportInfoRow(label: 'Modelo', value: result.template.label),
                 _ReportInfoRow(
                   label: 'Tamanho',
                   value: _formatBytes(result.sizeBytes),
@@ -322,11 +371,16 @@ class _DutyReportScreenState extends State<DutyReportScreen> {
       return;
     }
 
+    if (!context.mounted) {
+      return;
+    }
+    final shareOrigin = sharePositionOriginFor(context);
     await SharePlus.instance.share(
       ShareParams(
         title: 'Compartilhar relatorio de plantao',
         subject: result.fileName,
-        text: 'Relatorio de plantao gerado no SICRO Operacional.',
+        text: 'Relatorio de plantao gerado no ecossistema SICRO.',
+        sharePositionOrigin: shareOrigin,
         files: [
           XFile(
             result.file.path,
@@ -380,11 +434,64 @@ class _ReportIntroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Selecione as ocorrencias atendidas e gere o PDF institucional.',
+                  'Selecione o modelo, marque as ocorrencias atendidas e gere o PDF institucional.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportTemplateCard extends StatelessWidget {
+  const _ReportTemplateCard({required this.template, required this.onChanged});
+
+  final DutyReportTemplate template;
+  final ValueChanged<DutyReportTemplate> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.panel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Modelo do relatorio',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'O modelo operacional aproveita os dados do dossie SICRO. O classico preserva a tabela institucional atual.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<DutyReportTemplate>(
+            selected: {template},
+            showSelectedIcon: false,
+            onSelectionChanged: (selection) => onChanged(selection.first),
+            segments: const [
+              ButtonSegment(
+                value: DutyReportTemplate.operational,
+                icon: Icon(Icons.auto_awesome_outlined),
+                label: Text('Operacional SICRO'),
+              ),
+              ButtonSegment(
+                value: DutyReportTemplate.classic,
+                icon: Icon(Icons.table_chart_outlined),
+                label: Text('Classico'),
+              ),
+            ],
           ),
         ],
       ),
@@ -567,14 +674,69 @@ class _OccurrenceSelectionHeader extends StatelessWidget {
   }
 }
 
+class _DutyPeriodFilterNote extends StatelessWidget {
+  const _DutyPeriodFilterNote({
+    required this.startedAt,
+    required this.finishedAt,
+    required this.visibleCount,
+    required this.graceCount,
+  });
+
+  final DateTime startedAt;
+  final DateTime finishedAt;
+  final int visibleCount;
+  final int graceCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = graceCount == 0
+        ? 'Mostrando ocorrencias iniciadas entre ${_dateTimeLabel(startedAt)} e ${_dateTimeLabel(finishedAt)}.'
+        : 'Mostrando $visibleCount ocorrencia(s); $graceCount fora da janela, iniciada(s) ate 2h apos o fim do plantao.';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.panel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.filter_alt_outlined,
+            color: AppColors.textSecondary,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SelectableOccurrenceCard extends StatelessWidget {
   const _SelectableOccurrenceCard({
     required this.occurrence,
+    required this.startedAt,
+    required this.outsideWindow,
     required this.selected,
     required this.onChanged,
   });
 
   final FieldOccurrence occurrence;
+  final DateTime startedAt;
+  final bool outsideWindow;
   final bool selected;
   final ValueChanged<bool> onChanged;
 
@@ -598,12 +760,41 @@ class _SelectableOccurrenceCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(occurrence.caseData.displayLocation),
               const SizedBox(height: 4),
-              Text(
-                _dateTimeLabel(_occurrenceDate(occurrence)),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w700,
-                ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Inicio: ${_dateTimeLabel(startedAt)}',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (outsideWindow)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.gold.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: AppColors.gold.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      child: const Text(
+                        'Fora da janela (+2h)',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -648,10 +839,10 @@ class _ReportInfoRow extends StatelessWidget {
   }
 }
 
-DateTime _occurrenceDate(FieldOccurrence occurrence) {
-  return occurrence.caseData.arrivedAt ??
+DateTime _occurrenceStartDate(FieldOccurrence occurrence) {
+  return occurrence.startedAt ??
       occurrence.caseData.calledAt ??
-      occurrence.startedAt ??
+      occurrence.caseData.arrivedAt ??
       occurrence.createdAt;
 }
 

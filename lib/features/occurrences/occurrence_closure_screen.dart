@@ -475,6 +475,7 @@ IconData _timelineIcon(OccurrenceTimelineEventType type) {
     OccurrenceTimelineEventType.gpsCaptured => Icons.my_location_outlined,
     OccurrenceTimelineEventType.firstPhoto => Icons.photo_camera_outlined,
     OccurrenceTimelineEventType.exported => Icons.archive_outlined,
+    OccurrenceTimelineEventType.imported => Icons.file_download_outlined,
     OccurrenceTimelineEventType.completed => Icons.flag_circle_outlined,
     OccurrenceTimelineEventType.reopened => Icons.lock_open_outlined,
     OccurrenceTimelineEventType.statusChanged => Icons.swap_horiz_outlined,

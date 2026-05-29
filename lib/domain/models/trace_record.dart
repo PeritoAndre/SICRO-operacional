@@ -1,17 +1,22 @@
 enum TraceType {
   braking('frenagem', 'Frenagem'),
+  skid('derrapagem', 'Derrapagem'),
   drag('arrasto', 'Arrasto'),
   fragment('fragmento', 'Fragmento'),
   stain('mancha', 'Mancha'),
-  furrow('sulco', 'Sulco'),
+  furrow('sulco', 'Sulcagem/sulco'),
   tire('pneu', 'Pneu'),
   fluid('fluido', 'Fluido'),
   detachedPart('peca_desprendida', 'Peca desprendida'),
+  impactMark('marca_impacto', 'Marca de impacto'),
   blood('sangue', 'Sangue'),
   biological('vestigio_biologico', 'Vestigio biologico'),
   ballisticCase('capsula_estojo', 'Capsula/estojo'),
   projectile('projetil', 'Projetil'),
   perforation('perfuracao', 'Perfuracao'),
+  cartridge('cartucho_municao', 'Cartucho/municao'),
+  ballisticStandard('padrao_balistico', 'Padrao balistico'),
+  gsrSample('amostra_gsr', 'Amostra GSR'),
   coldWeapon('arma_branca', 'Arma branca'),
   firearm('arma_fogo', 'Arma de fogo'),
   struggleSign('sinal_luta', 'Sinal de luta'),
@@ -27,6 +32,27 @@ enum TraceType {
   thermalDamage('dano_termico', 'Dano termico'),
   sootResidue('fuligem_residuo', 'Fuligem/residuo'),
   combustibleMaterial('material_combustivel', 'Material combustivel'),
+  vegetationSuppression('supressao_vegetal', 'Supressao vegetal'),
+  effluent('efluente', 'Efluente/contaminante'),
+  burnIndicator('indicador_queima', 'Indicador de queima'),
+  animalCadaver('cadaver_animal', 'Cadaver animal'),
+  environmentalSample('amostra_ambiental', 'Amostra ambiental'),
+  multimediaFile('arquivo_multimidia', 'Arquivo multimidia'),
+  cctvDevice('equipamento_cftv', 'Equipamento CFTV'),
+  storageMedia('midia_armazenamento', 'Midia de armazenamento'),
+  audioRecord('registro_audio', 'Registro de audio'),
+  videoRecord('registro_video', 'Registro de video'),
+  imageRecord('registro_imagem', 'Registro de imagem'),
+  latentPrint('impressao_latente', 'Impressao latente'),
+  patentPrint('impressao_patente', 'Impressao patente'),
+  plasticPrint('impressao_moldada', 'Impressao moldada'),
+  fingerprintRecord('registro_datiloscopico', 'Registro datiloscopico'),
+  palmprintRecord('registro_palmar', 'Registro palmar'),
+  papillaryFragment('fragmento_papilar', 'Fragmento papilar'),
+  necroFingerprint(
+    'registro_necropapiloscopico',
+    'Registro necropapiloscopico',
+  ),
   other('outro', 'Outro');
 
   const TraceType(this.code, this.label);
@@ -49,6 +75,27 @@ enum TraceType {
     }
     if (normalizedCode == 'peca') {
       return TraceType.detachedPart;
+    }
+    if (normalizedCode == 'sulcagem') {
+      return TraceType.furrow;
+    }
+    if (normalizedCode == 'impacto') {
+      return TraceType.impactMark;
+    }
+    if (normalizedCode == 'vegetacao_suprimida') {
+      return TraceType.vegetationSuppression;
+    }
+    if (normalizedCode == 'amostra') {
+      return TraceType.environmentalSample;
+    }
+    if (normalizedCode == 'midia' || normalizedCode == 'arquivo') {
+      return TraceType.multimediaFile;
+    }
+    if (normalizedCode == 'papilar' || normalizedCode == 'fragmento_papilar') {
+      return TraceType.papillaryFragment;
+    }
+    if (normalizedCode == 'latente') {
+      return TraceType.latentPrint;
     }
     return TraceType.other;
   }

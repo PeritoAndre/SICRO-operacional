@@ -125,7 +125,7 @@ class _LocationScreenState extends State<LocationScreen> {
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: _openAndroidSettings,
+                  onPressed: _openLocationSettings,
                   icon: const Icon(Icons.settings_outlined),
                   label: const Text('Abrir configuracoes de localizacao'),
                 ),
@@ -247,7 +247,7 @@ class _LocationScreenState extends State<LocationScreen> {
     }
   }
 
-  Future<void> _openAndroidSettings() async {
+  Future<void> _openLocationSettings() async {
     await widget.captureService.openLocationSettings();
   }
 }

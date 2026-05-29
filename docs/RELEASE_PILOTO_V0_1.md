@@ -13,7 +13,8 @@
 ## Escopo incluido
 
 - Gestao local de ocorrencias.
-- Fluxos iniciais para Transito, Morte Violenta e Patrimonio.
+- Fluxos iniciais para Transito, Local de Crime, Patrimonio, Ambiental,
+  Balistica Forense, Audio e Imagem e Papiloscopia.
 - GPS pericial.
 - Fotos categorizadas.
 - Checklist contextual editavel por ocorrencia.

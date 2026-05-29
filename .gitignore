@@ -39,6 +39,7 @@ android/local.properties
 
 # Generated distribution artifacts
 /dist/
+/outputs/
 *.apk
 
 # Symbolication related

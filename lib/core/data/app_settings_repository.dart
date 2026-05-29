@@ -23,7 +23,11 @@ class AppSettingsRepository extends ChangeNotifier {
       return;
     }
     try {
-      _settings = await _storage.loadSettings();
+      final loadedSettings = await _storage.loadSettings();
+      _settings = _migrateSettings(loadedSettings);
+      if (!_sameAreas(loadedSettings.activeAreas, _settings.activeAreas)) {
+        await _storage.saveSettings(_settings);
+      }
       _lastError = null;
     } catch (error) {
       _settings = const AppSettings();
@@ -65,11 +69,28 @@ class AppSettingsRepository extends ChangeNotifier {
     await _persist();
   }
 
+  Future<void> updateBackup(BackupSettings backup) async {
+    _settings = _settings.copyWith(backup: backup);
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> restoreSettings(AppSettings settings) async {
+    _settings = _migrateSettings(settings);
+    notifyListeners();
+    await _persist();
+  }
+
   Future<void> updateSettings({
     required ExpertProfile profile,
     required List<ForensicArea> activeAreas,
+    BackupSettings? backup,
   }) async {
-    _settings = _settings.copyWith(profile: profile, activeAreas: activeAreas);
+    _settings = _settings.copyWith(
+      profile: profile,
+      activeAreas: activeAreas,
+      backup: backup,
+    );
     notifyListeners();
     await _persist();
   }
@@ -83,4 +104,41 @@ class AppSettingsRepository extends ChangeNotifier {
       notifyListeners();
     }
   }
+}
+
+AppSettings _migrateSettings(AppSettings settings) {
+  final activeAreas = settings.activeAreas;
+  final hasLegacyFullSet =
+      activeAreas.contains(ForensicArea.traffic) &&
+      activeAreas.contains(ForensicArea.violentDeath) &&
+      activeAreas.contains(ForensicArea.property);
+  if (hasLegacyFullSet) {
+    final migrated = [...activeAreas];
+    if (!migrated.contains(ForensicArea.environmental)) {
+      migrated.add(ForensicArea.environmental);
+    }
+    if (!migrated.contains(ForensicArea.ballistics)) {
+      migrated.add(ForensicArea.ballistics);
+    }
+    if (!migrated.contains(ForensicArea.audioImage)) {
+      migrated.add(ForensicArea.audioImage);
+    }
+    if (!migrated.contains(ForensicArea.papiloscopy)) {
+      migrated.add(ForensicArea.papiloscopy);
+    }
+    return settings.copyWith(activeAreas: migrated);
+  }
+  return settings;
+}
+
+bool _sameAreas(List<ForensicArea> left, List<ForensicArea> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) {
+      return false;
+    }
+  }
+  return true;
 }

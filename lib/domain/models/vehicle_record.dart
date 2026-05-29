@@ -8,6 +8,7 @@ class VehicleRecord {
     this.color = '',
     this.trafficDirection = '',
     this.finalPosition = '',
+    this.impactPoint = '',
     this.damage = '',
     this.driver = '',
     this.owner = '',
@@ -23,6 +24,7 @@ class VehicleRecord {
   final String color;
   final String trafficDirection;
   final String finalPosition;
+  final String impactPoint;
   final String damage;
   final String driver;
   final String owner;
@@ -37,6 +39,7 @@ class VehicleRecord {
     String? color,
     String? trafficDirection,
     String? finalPosition,
+    String? impactPoint,
     String? damage,
     String? driver,
     String? owner,
@@ -52,6 +55,7 @@ class VehicleRecord {
       color: color ?? this.color,
       trafficDirection: trafficDirection ?? this.trafficDirection,
       finalPosition: finalPosition ?? this.finalPosition,
+      impactPoint: impactPoint ?? this.impactPoint,
       damage: damage ?? this.damage,
       driver: driver ?? this.driver,
       owner: owner ?? this.owner,
@@ -70,6 +74,7 @@ class VehicleRecord {
       'cor': color,
       'sentido_trafego': trafficDirection,
       'posicao_final': finalPosition,
+      'ponto_impacto': impactPoint,
       'avarias': damage,
       'condutor': driver,
       'proprietario': owner,
@@ -88,6 +93,7 @@ class VehicleRecord {
       color: _string(json['cor']),
       trafficDirection: _string(json['sentido_trafego']),
       finalPosition: _string(json['posicao_final']),
+      impactPoint: _string(json['ponto_impacto']),
       damage: _string(json['avarias']),
       driver: _string(json['condutor']),
       owner: _string(json['proprietario']),

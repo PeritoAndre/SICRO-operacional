@@ -447,10 +447,23 @@ class _TracesHeader extends StatelessWidget {
     final weaponObjectCount = occurrence.traces
         .where((trace) => _weaponObjectTraceTypes.contains(trace.type))
         .length;
+    final multimediaCount = occurrence.traces
+        .where((trace) => _multimediaTraceTypes.contains(trace.type))
+        .length;
+    final papiloscopyCount = occurrence.traces
+        .where((trace) => _papiloscopyTraceTypes.contains(trace.type))
+        .length;
     final subtitle = switch (occurrence.metadata.type) {
       ForensicCaseType.violentDeath =>
         '$biologicalCount biologico(s) - $ballisticCount balistico(s) - $weaponObjectCount arma/objeto(s)',
       ForensicCaseType.property => _propertySubtitle(occurrence),
+      ForensicCaseType.environmental => _environmentalSubtitle(occurrence),
+      ForensicCaseType.ballistics =>
+        '${occurrence.traces.length} material(is) balistico(s)',
+      ForensicCaseType.audioImage =>
+        '$multimediaCount midia(s)/arquivo(s) multimidia',
+      ForensicCaseType.papiloscopy =>
+        '$papiloscopyCount vestigio(s)/registro(s) papiloscopico(s)',
       ForensicCaseType.traffic => '$brakingCount frenagem(ns) registrada(s)',
     };
 
@@ -710,6 +723,7 @@ class _InfoChip extends StatelessWidget {
 IconData _iconFor(TraceType type) {
   return switch (type) {
     TraceType.braking => Icons.tire_repair_outlined,
+    TraceType.skid => Icons.gesture_outlined,
     TraceType.drag => Icons.swipe_outlined,
     TraceType.fragment => Icons.category_outlined,
     TraceType.stain => Icons.water_drop_outlined,
@@ -717,11 +731,15 @@ IconData _iconFor(TraceType type) {
     TraceType.tire => Icons.radio_button_unchecked,
     TraceType.fluid => Icons.opacity,
     TraceType.detachedPart => Icons.build_outlined,
+    TraceType.impactMark => Icons.crisis_alert_outlined,
     TraceType.blood => Icons.water_drop,
     TraceType.biological => Icons.biotech_outlined,
     TraceType.ballisticCase => Icons.adjust_outlined,
     TraceType.projectile => Icons.gps_fixed_outlined,
     TraceType.perforation => Icons.center_focus_strong_outlined,
+    TraceType.cartridge => Icons.album_outlined,
+    TraceType.ballisticStandard => Icons.compare_arrows_outlined,
+    TraceType.gsrSample => Icons.science_outlined,
     TraceType.coldWeapon => Icons.hardware_outlined,
     TraceType.firearm => Icons.construction_outlined,
     TraceType.struggleSign => Icons.front_hand_outlined,
@@ -737,6 +755,24 @@ IconData _iconFor(TraceType type) {
     TraceType.thermalDamage => Icons.thermostat_outlined,
     TraceType.sootResidue => Icons.blur_on_outlined,
     TraceType.combustibleMaterial => Icons.inventory_2_outlined,
+    TraceType.vegetationSuppression => Icons.forest_outlined,
+    TraceType.effluent => Icons.water_drop_outlined,
+    TraceType.burnIndicator => Icons.local_fire_department_outlined,
+    TraceType.animalCadaver => Icons.pets_outlined,
+    TraceType.environmentalSample => Icons.science_outlined,
+    TraceType.multimediaFile => Icons.perm_media_outlined,
+    TraceType.cctvDevice => Icons.videocam_outlined,
+    TraceType.storageMedia => Icons.storage_outlined,
+    TraceType.audioRecord => Icons.graphic_eq_outlined,
+    TraceType.videoRecord => Icons.movie_outlined,
+    TraceType.imageRecord => Icons.image_outlined,
+    TraceType.latentPrint => Icons.fingerprint,
+    TraceType.patentPrint => Icons.fingerprint,
+    TraceType.plasticPrint => Icons.fingerprint,
+    TraceType.fingerprintRecord => Icons.badge_outlined,
+    TraceType.palmprintRecord => Icons.back_hand_outlined,
+    TraceType.papillaryFragment => Icons.manage_search_outlined,
+    TraceType.necroFingerprint => Icons.health_and_safety_outlined,
     TraceType.other => Icons.scatter_plot_outlined,
   };
 }
@@ -745,6 +781,10 @@ String _screenTitle(FieldOccurrence occurrence) {
   return switch (occurrence.metadata.type) {
     ForensicCaseType.violentDeath => 'Vestigios periciais',
     ForensicCaseType.property => 'Vestigios patrimoniais',
+    ForensicCaseType.environmental => 'Vestigios ambientais',
+    ForensicCaseType.ballistics => 'Material balistico',
+    ForensicCaseType.audioImage => 'Midias e arquivos',
+    ForensicCaseType.papiloscopy => 'Vestigios papiloscopicos',
     ForensicCaseType.traffic => 'Vestigios',
   };
 }
@@ -755,10 +795,20 @@ String _propertySubtitle(FieldOccurrence occurrence) {
   return '$label - ${occurrence.traces.length} registro(s)';
 }
 
+String _environmentalSubtitle(FieldOccurrence occurrence) {
+  final nature = occurrence.metadata.environmentalNature;
+  final label = nature?.label ?? 'Ambiental';
+  return '$label - ${occurrence.traces.length} registro(s)';
+}
+
 String _applicabilityTitle(FieldOccurrence occurrence) {
   return switch (occurrence.metadata.type) {
     ForensicCaseType.violentDeath => 'Vestigios no local',
     ForensicCaseType.property => 'Vestigios patrimoniais',
+    ForensicCaseType.environmental => 'Vestigios ambientais',
+    ForensicCaseType.ballistics => 'Material balistico',
+    ForensicCaseType.audioImage => 'Midias/arquivos multimidia',
+    ForensicCaseType.papiloscopy => 'Vestigios papiloscopicos',
     ForensicCaseType.traffic => 'Vestigios na ocorrencia',
   };
 }
@@ -769,6 +819,14 @@ String _applicabilityMessage(FieldOccurrence occurrence) {
       'Use somente se nao havia vestigio tecnico a registrar.',
     ForensicCaseType.property =>
       'Use quando nao havia vestigio patrimonial relevante a registrar.',
+    ForensicCaseType.environmental =>
+      'Use quando nao havia vestigio ambiental relevante a registrar.',
+    ForensicCaseType.ballistics =>
+      'Use quando nao havia material balistico relevante a registrar.',
+    ForensicCaseType.audioImage =>
+      'Use quando nao havia midia ou arquivo multimidia relevante a registrar.',
+    ForensicCaseType.papiloscopy =>
+      'Use quando nao havia vestigio ou registro papiloscopico relevante.',
     ForensicCaseType.traffic =>
       'Use quando nao havia vestigio tecnico relevante no local.',
   };
@@ -786,6 +844,10 @@ const _ballisticTraceTypes = {
   TraceType.ballisticCase,
   TraceType.projectile,
   TraceType.perforation,
+  TraceType.cartridge,
+  TraceType.ballisticStandard,
+  TraceType.gsrSample,
+  TraceType.firearm,
 };
 
 const _weaponObjectTraceTypes = {
@@ -795,6 +857,25 @@ const _weaponObjectTraceTypes = {
   TraceType.footprint,
   TraceType.displacedObject,
   TraceType.detachedPart,
+};
+
+const _multimediaTraceTypes = {
+  TraceType.multimediaFile,
+  TraceType.cctvDevice,
+  TraceType.storageMedia,
+  TraceType.audioRecord,
+  TraceType.videoRecord,
+  TraceType.imageRecord,
+};
+
+const _papiloscopyTraceTypes = {
+  TraceType.latentPrint,
+  TraceType.patentPrint,
+  TraceType.plasticPrint,
+  TraceType.fingerprintRecord,
+  TraceType.palmprintRecord,
+  TraceType.papillaryFragment,
+  TraceType.necroFingerprint,
 };
 
 String _dimensionLabel(TraceRecord trace) {

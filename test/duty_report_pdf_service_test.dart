@@ -6,7 +6,9 @@ import 'package:sicro_campo/core/data/operational_statistics_service.dart';
 import 'package:sicro_campo/core/data/statistical_report_pdf_service.dart';
 import 'package:sicro_campo/domain/models/app_settings.dart';
 import 'package:sicro_campo/domain/models/case_data.dart';
+import 'package:sicro_campo/domain/models/field_photo.dart';
 import 'package:sicro_campo/domain/models/forensic_case_metadata.dart';
+import 'package:sicro_campo/domain/models/location_record.dart';
 import 'package:sicro_campo/domain/models/occurrence.dart';
 
 void main() {
@@ -58,8 +60,87 @@ void main() {
     );
 
     expect(result.fileName, 'Relatorio_Plantao_20260521.pdf');
+    expect(result.template, DutyReportTemplate.classic);
     expect(result.occurrenceCount, 1);
     expect(result.generatedAt, DateTime(2026, 5, 21, 19, 30));
+    expect(await result.file.exists(), isTrue);
+    expect(result.sizeBytes, greaterThan(1000));
+
+    final bytes = await result.file.readAsBytes();
+    expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+  });
+
+  test('generates operational SICRO duty report PDF', () async {
+    final tempDir = await Directory.systemTemp.createTemp(
+      'sicro_operational_duty_report_test_',
+    );
+    addTearDown(() async {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    final service = DutyReportPdfService(
+      outputDirectoryProvider: () async => tempDir,
+      clock: () => DateTime(2026, 5, 25, 21),
+    );
+    final photoFile = File('assets/launcher/app_icon.png');
+
+    final result = await service.generate(
+      DutyReportData(
+        expertName: 'Andre Ricardo Barroso',
+        role: 'Perito Criminal',
+        dutyScale: 'Transito I',
+        startedAt: DateTime(2026, 5, 25, 7, 30),
+        finishedAt: DateTime(2026, 5, 26, 7, 30),
+        observations: 'Plantao consolidado pelo ecossistema SICRO.',
+        template: DutyReportTemplate.operational,
+        occurrences: [
+          FieldOccurrence(
+            id: 'occ_operational_report_1',
+            createdAt: DateTime(2026, 5, 25, 20, 4),
+            updatedAt: DateTime(2026, 5, 25, 20, 26),
+            startedAt: DateTime(2026, 5, 25, 20, 4),
+            finishedAt: DateTime(2026, 5, 25, 20, 26),
+            status: OccurrenceStatus.completed,
+            metadata: const ForensicCaseMetadata(
+              trafficNature: TrafficNature.collision,
+              trafficInvolved: [
+                TrafficInvolved.car,
+                TrafficInvolved.motorcycle,
+              ],
+              result: OccurrenceResult.injuredVictim,
+              officialVehicleInvolved: true,
+            ),
+            caseData: CaseData(
+              bo: '123/2026',
+              protocol: '30941/2026',
+              municipality: 'Macapa',
+              street: 'Av. FAB',
+              arrivedAt: DateTime(2026, 5, 25, 20, 4),
+            ),
+            location: LocationRecord(
+              latitude: 0.0656487,
+              longitude: -51.0521516,
+              accuracyMeters: 4.3,
+              capturedAt: DateTime(2026, 5, 25, 20, 8),
+            ),
+            photos: [
+              FieldPhoto(
+                id: 'foto_local_1',
+                filePath: photoFile.path,
+                category: PhotoCategory.overview,
+                capturedAt: DateTime(2026, 5, 25, 20, 6),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    expect(result.fileName, 'Relatorio_Plantao_SICRO_20260525.pdf');
+    expect(result.template, DutyReportTemplate.operational);
+    expect(result.occurrenceCount, 1);
     expect(await result.file.exists(), isTrue);
     expect(result.sizeBytes, greaterThan(1000));
 

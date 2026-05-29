@@ -36,12 +36,12 @@ Este roteiro acompanha a distribuicao interna do APK piloto para peritos.
 - Verificar checklist de transito.
 - Verificar modulos de veiculos, vitimas, vestigios, medicoes e observacoes.
 
-### Morte violenta
+### Local de crime
 
-- Criar ocorrencia de morte violenta.
+- Criar ocorrencia de local de crime.
 - Selecionar natureza, estado do corpo, quantidade de vitimas, ambiente e vestigios esperados.
 - Verificar se o dashboard mostra vitimas/corpos, vestigios biologicos, vestigios balisticos e armas/objetos.
-- Verificar checklist de morte violenta.
+- Verificar checklist de local de crime.
 
 ### Patrimonio
 
@@ -49,6 +49,34 @@ Este roteiro acompanha a distribuicao interna do APK piloto para peritos.
 - Testar as naturezas: avaliacao direta, avaliacao indireta, danos, arrombamento e incendio.
 - Verificar checklist de patrimonio.
 - Verificar fotos, vestigios, medicoes, observacoes e exportacao.
+
+### Ambiental
+
+- Criar ocorrencia ambiental.
+- Selecionar natureza, contexto do local e vestigios esperados.
+- Verificar checklist ambiental baseado no POP.
+- Verificar fotos, vestigios ambientais, medicoes, observacoes e exportacao.
+
+### Balistica Forense
+
+- Criar ocorrencia de balistica forense.
+- Testar as naturezas: confronto balistico, coleta GSR MEV/EDS, eficiencia em arma de fogo e eficiencia em cartuchos de municao.
+- Verificar checklist de balistica baseado no POP.
+- Verificar material balistico, fotos, medicoes, observacoes e exportacao.
+
+### Audio e Imagem
+
+- Criar ocorrencia de audio e imagem.
+- Testar as naturezas: analise de conteudo, melhoramento de imagem, comparacao facial, verificacao de edicao, comparacao de locutor, CFTV e estimativa de estatura.
+- Verificar checklist de audio e imagem baseado no POP.
+- Verificar midias/arquivos, fotos documentais, medicoes, observacoes e exportacao.
+
+### Papiloscopia
+
+- Criar ocorrencia de papiloscopia.
+- Testar as naturezas: identificacao criminal, levantamento em local de crime, levantamento em laboratorio e identificacao necropapiloscopica.
+- Verificar checklist de papiloscopia baseado no POP.
+- Verificar vestigios papiloscopicos, fotos documentais, medicoes, observacoes e exportacao.
 
 ## Feedback esperado
 

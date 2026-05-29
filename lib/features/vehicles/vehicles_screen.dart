@@ -71,7 +71,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                     icon: Icons.directions_car_outlined,
                     title: 'Nenhum veiculo registrado',
                     message:
-                        'Adicione veiculos envolvidos para registrar placa, avarias, posicao final e fotos vinculadas.',
+                        'Adicione veiculos envolvidos para registrar placa, ponto de impacto, avarias, posicao final e fotos vinculadas.',
                   )
                 else
                   for (final vehicle in occurrence.vehicles) ...[
@@ -180,6 +180,7 @@ class _VehicleEditorScreenState extends State<_VehicleEditorScreen> {
   final _colorController = TextEditingController();
   final _trafficDirectionController = TextEditingController();
   final _finalPositionController = TextEditingController();
+  final _impactPointController = TextEditingController();
   final _damageController = TextEditingController();
   final _driverController = TextEditingController();
   final _ownerController = TextEditingController();
@@ -199,6 +200,7 @@ class _VehicleEditorScreenState extends State<_VehicleEditorScreen> {
     _colorController.dispose();
     _trafficDirectionController.dispose();
     _finalPositionController.dispose();
+    _impactPointController.dispose();
     _damageController.dispose();
     _driverController.dispose();
     _ownerController.dispose();
@@ -308,6 +310,15 @@ class _VehicleEditorScreenState extends State<_VehicleEditorScreen> {
                 ),
                 const SizedBox(height: 10),
                 TextField(
+                  controller: _impactPointController,
+                  onChanged: _scheduleSave,
+                  decoration: const InputDecoration(
+                    labelText: 'Ponto de impacto',
+                    prefixIcon: Icon(Icons.crisis_alert_outlined),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
                   controller: _damageController,
                   onChanged: _scheduleSave,
                   minLines: 2,
@@ -379,6 +390,7 @@ class _VehicleEditorScreenState extends State<_VehicleEditorScreen> {
     _colorController.text = vehicle.color;
     _trafficDirectionController.text = vehicle.trafficDirection;
     _finalPositionController.text = vehicle.finalPosition;
+    _impactPointController.text = vehicle.impactPoint;
     _damageController.text = vehicle.damage;
     _driverController.text = vehicle.driver;
     _ownerController.text = vehicle.owner;
@@ -446,6 +458,7 @@ class _VehicleEditorScreenState extends State<_VehicleEditorScreen> {
       color: _colorController.text.trim(),
       trafficDirection: _trafficDirectionController.text.trim(),
       finalPosition: _finalPositionController.text.trim(),
+      impactPoint: _impactPointController.text.trim(),
       damage: _damageController.text.trim(),
       driver: _driverController.text.trim(),
       owner: _ownerController.text.trim(),
@@ -581,6 +594,11 @@ class _VehicleCard extends StatelessWidget {
                       icon: Icons.place_outlined,
                       label: vehicle.finalPosition,
                     ),
+                  if (vehicle.impactPoint.isNotEmpty)
+                    _InfoChip(
+                      icon: Icons.crisis_alert_outlined,
+                      label: vehicle.impactPoint,
+                    ),
                   if (vehicle.trafficDirection.isNotEmpty)
                     _InfoChip(
                       icon: Icons.explore_outlined,
@@ -687,6 +705,7 @@ String _signature(VehicleRecord vehicle) {
     vehicle.color,
     vehicle.trafficDirection,
     vehicle.finalPosition,
+    vehicle.impactPoint,
     vehicle.damage,
     vehicle.driver,
     vehicle.owner,

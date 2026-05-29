@@ -33,7 +33,7 @@ class LocationCaptureService {
 
     if (permission == LocationPermission.deniedForever) {
       throw const LocationCaptureException(
-        'Permissao de localizacao bloqueada. Libere nas configuracoes do Android.',
+        'Permissao de localizacao bloqueada. Libere nas configuracoes do aparelho.',
       );
     }
   }

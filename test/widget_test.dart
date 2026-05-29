@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sicro_campo/app/sicro_campo_app.dart';
 import 'package:sicro_campo/core/data/app_settings_repository.dart';
 import 'package:sicro_campo/core/data/app_settings_storage.dart';
+import 'package:sicro_campo/core/data/duty_shift_repository.dart';
+import 'package:sicro_campo/core/data/official_document_repository.dart';
 import 'package:sicro_campo/core/data/occurrence_repository.dart';
 import 'package:sicro_campo/domain/models/app_settings.dart';
 import 'package:sicro_campo/domain/models/case_data.dart';
@@ -12,6 +14,7 @@ import 'package:sicro_campo/domain/models/field_photo.dart';
 import 'package:sicro_campo/domain/models/forensic_case_metadata.dart';
 import 'package:sicro_campo/domain/models/location_record.dart';
 import 'package:sicro_campo/domain/models/measurement_record.dart';
+import 'package:sicro_campo/domain/models/occurrence.dart';
 import 'package:sicro_campo/domain/models/vehicle_record.dart';
 import 'package:sicro_campo/domain/models/victim_record.dart';
 
@@ -25,7 +28,9 @@ void main() {
     await tester.pumpWidget(
       SicroCampoApp(
         repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
         settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
       ),
     );
 
@@ -35,7 +40,75 @@ void main() {
     expect(find.text('Estatisticas'), findsOneWidget);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
     await tester.pumpAndSettle();
-    expect(find.text('Recentes'), findsOneWidget);
+    expect(find.text('Diario operacional vazio'), findsOneWidget);
+  });
+
+  testWidgets('duty report filters occurrences by duty period with grace', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 3200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final now = DateTime.now();
+    final dutyStart = DateTime(now.year, now.month, now.day, 7, 30);
+    final dutyEnd = dutyStart.add(const Duration(hours: 24));
+    final repository = OccurrenceRepository();
+    await repository.load();
+    await repository.importOccurrence(
+      _reportOccurrence(
+        id: 'occ_inside_duty',
+        bo: 'IN-01/2026',
+        startedAt: dutyStart.add(const Duration(hours: 1)),
+      ),
+    );
+    await repository.importOccurrence(
+      _reportOccurrence(
+        id: 'occ_grace_duty',
+        bo: 'GRACE-01/2026',
+        startedAt: dutyEnd.add(const Duration(minutes: 90)),
+      ),
+    );
+    await repository.importOccurrence(
+      _reportOccurrence(
+        id: 'occ_before_duty',
+        bo: 'BEFORE-01/2026',
+        startedAt: dutyStart.subtract(const Duration(hours: 1)),
+      ),
+    );
+    await repository.importOccurrence(
+      _reportOccurrence(
+        id: 'occ_after_grace',
+        bo: 'AFTER-01/2026',
+        startedAt: dutyEnd.add(const Duration(hours: 3)),
+      ),
+    );
+
+    final settingsRepository = await _settingsRepository();
+    await tester.pumpWidget(
+      SicroCampoApp(
+        repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
+        settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
+      ),
+    );
+
+    await tester.tap(find.text('Gerar relatorio de plantao'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('BO IN-01/2026'), findsOneWidget);
+    expect(find.text('BO GRACE-01/2026'), findsOneWidget);
+    expect(find.text('BO BEFORE-01/2026'), findsNothing);
+    expect(find.text('BO AFTER-01/2026'), findsNothing);
+    expect(find.text('Fora da janela (+2h)'), findsOneWidget);
+    expect(
+      find.textContaining('1 fora da janela, iniciada(s) ate 2h'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('creates traffic occurrence from guided start flow', (
@@ -54,7 +127,9 @@ void main() {
     await tester.pumpWidget(
       SicroCampoApp(
         repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
         settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
       ),
     );
 
@@ -78,7 +153,46 @@ void main() {
     );
   });
 
-  testWidgets('creates violent death occurrence from setup flow', (
+  testWidgets('marks traffic occurrence with official vehicle flag', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repository = OccurrenceRepository();
+    await repository.load();
+    final settingsRepository = await _settingsRepository();
+    await tester.pumpWidget(
+      SicroCampoApp(
+        repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
+        settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
+      ),
+    );
+
+    await tester.tap(find.text('Iniciar pericia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carro'));
+    await tester.tap(find.text('Sem vitima'));
+    await tester.tap(find.text('Carro oficial envolvido'));
+    await tester.enterText(find.bySemanticsLabel('BO'), 'OF-01/2026');
+    await tester.tap(find.text('Criar ocorrencia'));
+    await tester.pumpAndSettle();
+
+    final metadata = repository.occurrences.first.metadata;
+    expect(metadata.officialVehicleInvolved, isTrue);
+    expect(
+      find.text('Transito - Colisao - Carro - Carro oficial - Sem vitima'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('creates local crime occurrence from setup flow', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1080, 3600);
@@ -96,17 +210,19 @@ void main() {
     await tester.pumpWidget(
       SicroCampoApp(
         repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
         settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
       ),
     );
 
     await tester.tap(find.text('Iniciar pericia'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Morte violenta'));
+    await tester.tap(find.text('Local de crime'));
     await tester.pumpAndSettle();
     expect(find.text('Transito'), findsWidgets);
-    expect(find.text('Morte violenta'), findsWidgets);
-    await tester.tap(find.text('Configurar morte violenta'));
+    expect(find.text('Local de crime'), findsWidgets);
+    await tester.tap(find.text('Configurar local de crime'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Morte suspeita'));
     await tester.tap(find.text('Corpo presente no local'));
@@ -123,11 +239,11 @@ void main() {
     expect(find.text('BO MV-01/2026'), findsOneWidget);
     expect(
       find.text(
-        'Morte violenta - Morte suspeita - Corpo presente no local - 1 vitima - Via publica',
+        'Local de crime - Morte suspeita - Corpo presente no local - 1 vitima - Via publica',
       ),
       findsOneWidget,
     );
-    expect(find.text('Checklist de morte violenta'), findsWidgets);
+    expect(find.text('Checklist de local de crime'), findsWidgets);
     expect(find.text('Vitimas/Corpos'), findsWidgets);
     expect(find.text('Vestigios biologicos'), findsWidgets);
     expect(find.text('Vestigios balisticos'), findsWidgets);
@@ -166,28 +282,42 @@ void main() {
     await tester.pumpWidget(
       SicroCampoApp(
         repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
         settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
       ),
     );
 
     await tester.tap(find.text('Iniciar pericia'));
     await tester.pumpAndSettle();
     expect(find.text('Transito'), findsWidgets);
-    expect(find.text('Morte violenta'), findsOneWidget);
+    expect(find.text('Local de crime'), findsOneWidget);
     expect(find.text('Patrimonio'), findsOneWidget);
+    expect(find.text('Ambiental'), findsOneWidget);
+    expect(find.text('Balistica Forense'), findsOneWidget);
+    expect(find.text('Audio e Imagem'), findsOneWidget);
+    expect(find.text('Papiloscopia'), findsOneWidget);
 
-    await tester.tap(find.text('Morte violenta'));
+    await tester.tap(find.text('Local de crime'));
     await tester.pumpAndSettle();
     expect(find.text('Transito'), findsWidgets);
-    expect(find.text('Morte violenta'), findsWidgets);
+    expect(find.text('Local de crime'), findsWidgets);
     expect(find.text('Patrimonio'), findsOneWidget);
-    expect(find.text('Configurar morte violenta'), findsOneWidget);
+    expect(find.text('Ambiental'), findsOneWidget);
+    expect(find.text('Balistica Forense'), findsOneWidget);
+    expect(find.text('Audio e Imagem'), findsOneWidget);
+    expect(find.text('Papiloscopia'), findsOneWidget);
+    expect(find.text('Configurar local de crime'), findsOneWidget);
 
     await tester.tap(find.text('Patrimonio'));
     await tester.pumpAndSettle();
     expect(find.text('Transito'), findsWidgets);
-    expect(find.text('Morte violenta'), findsOneWidget);
+    expect(find.text('Local de crime'), findsOneWidget);
     expect(find.text('Patrimonio'), findsWidgets);
+    expect(find.text('Ambiental'), findsOneWidget);
+    expect(find.text('Balistica Forense'), findsOneWidget);
+    expect(find.text('Audio e Imagem'), findsOneWidget);
+    expect(find.text('Papiloscopia'), findsOneWidget);
     expect(find.text('Configurar patrimonio'), findsOneWidget);
 
     await tester.tap(find.text('Transito').first);
@@ -214,7 +344,9 @@ void main() {
     await tester.pumpWidget(
       SicroCampoApp(
         repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
         settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
       ),
     );
 
@@ -241,6 +373,263 @@ void main() {
     expect(find.text('Veiculos'), findsNothing);
     expect(metadata.type, ForensicCaseType.property);
     expect(metadata.propertyNature, PropertyNature.burglary);
+  });
+
+  testWidgets('creates environmental occurrence from POP-guided setup flow', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 4200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repository = OccurrenceRepository();
+    await repository.load();
+    final settingsRepository = await _settingsRepository(
+      activeAreas: const [ForensicArea.traffic, ForensicArea.environmental],
+    );
+    await tester.pumpWidget(
+      SicroCampoApp(
+        repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
+        settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
+      ),
+    );
+
+    await tester.tap(find.text('Iniciar pericia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ambiental'));
+    await tester.pumpAndSettle();
+    expect(find.text('Transito'), findsWidgets);
+    expect(find.text('Ambiental'), findsWidgets);
+    expect(find.text('Configurar ambiental'), findsOneWidget);
+
+    await tester.tap(find.text('Configurar ambiental'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Poluicao hidrica'));
+    await tester.enterText(find.bySemanticsLabel('BO'), 'AMB-01/2026');
+    await tester.tap(find.text('Criar ocorrencia'));
+    await tester.pumpAndSettle();
+
+    final metadata = repository.occurrences.first.metadata;
+    expect(find.text('Dossie operacional'), findsOneWidget);
+    expect(find.text('BO AMB-01/2026'), findsOneWidget);
+    expect(
+      find.text('Pericia ambiental - Poluicao hidrica - Corpo hidrico'),
+      findsOneWidget,
+    );
+    expect(find.text('Checklist ambiental'), findsWidgets);
+    expect(find.text('Vestigios ambientais'), findsWidgets);
+    expect(find.text('Vitimas'), findsNothing);
+    expect(find.text('Veiculos'), findsNothing);
+    expect(metadata.type, ForensicCaseType.environmental);
+    expect(metadata.environmentalNature, EnvironmentalNature.waterPollution);
+    expect(metadata.environmentalContext, EnvironmentalSceneContext.waterBody);
+    expect(metadata.expectedEnvironmentalEvidences, [
+      ExpectedEnvironmentalEvidence.waterBodyImpact,
+      ExpectedEnvironmentalEvidence.effluentContaminant,
+      ExpectedEnvironmentalEvidence.samples,
+      ExpectedEnvironmentalEvidence.protectedAreaImpact,
+    ]);
+  });
+
+  testWidgets('creates ballistics occurrence from POP-guided setup flow', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 5200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repository = OccurrenceRepository();
+    await repository.load();
+    final settingsRepository = await _settingsRepository(
+      activeAreas: const [ForensicArea.traffic, ForensicArea.ballistics],
+    );
+    await tester.pumpWidget(
+      SicroCampoApp(
+        repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
+        settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
+      ),
+    );
+
+    await tester.tap(find.text('Iniciar pericia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Balistica Forense'));
+    await tester.pumpAndSettle();
+    expect(find.text('Transito'), findsWidgets);
+    expect(find.text('Balistica Forense'), findsWidgets);
+    expect(find.text('Configurar balistica'), findsOneWidget);
+
+    await tester.tap(find.text('Configurar balistica'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Coleta GSR MEV/EDS'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.bySemanticsLabel('BO'), 'BAL-01/2026');
+    await tester.ensureVisible(find.text('Criar ocorrencia'));
+    await tester.tap(find.text('Criar ocorrencia'));
+    await tester.pumpAndSettle();
+
+    final metadata = repository.occurrences.first.metadata;
+    expect(find.text('Dossie operacional'), findsOneWidget);
+    expect(find.text('BO BAL-01/2026'), findsOneWidget);
+    expect(
+      find.text('Balistica Forense - Coleta GSR MEV/EDS - Pessoa suspeita'),
+      findsOneWidget,
+    );
+    expect(find.text('Checklist de balistica'), findsWidgets);
+    expect(find.text('Material balistico'), findsWidgets);
+    expect(find.text('Vitimas'), findsNothing);
+    expect(find.text('Veiculos'), findsNothing);
+    expect(metadata.type, ForensicCaseType.ballistics);
+    expect(metadata.ballisticsNature, BallisticsNature.gsrCollection);
+    expect(metadata.ballisticsContext, BallisticsContext.suspect);
+    expect(metadata.expectedBallisticEvidences, [
+      ExpectedBallisticEvidence.gsr,
+      ExpectedBallisticEvidence.clothing,
+      ExpectedBallisticEvidence.vehicleSurface,
+      ExpectedBallisticEvidence.packagesSeals,
+      ExpectedBallisticEvidence.documents,
+    ]);
+  });
+
+  testWidgets('creates audio and image occurrence from POP-guided setup flow', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 5600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repository = OccurrenceRepository();
+    await repository.load();
+    final settingsRepository = await _settingsRepository(
+      activeAreas: const [ForensicArea.traffic, ForensicArea.audioImage],
+    );
+    await tester.pumpWidget(
+      SicroCampoApp(
+        repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
+        settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
+      ),
+    );
+
+    await tester.tap(find.text('Iniciar pericia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Audio e Imagem'));
+    await tester.pumpAndSettle();
+    expect(find.text('Transito'), findsWidgets);
+    expect(find.text('Audio e Imagem'), findsWidgets);
+    expect(find.text('Configurar audio/imagem'), findsOneWidget);
+
+    await tester.tap(find.text('Configurar audio/imagem'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Preservacao/coleta de CFTV'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.bySemanticsLabel('BO'), 'AI-01/2026');
+    await tester.ensureVisible(find.text('Criar ocorrencia'));
+    await tester.tap(find.text('Criar ocorrencia'));
+    await tester.pumpAndSettle();
+
+    final metadata = repository.occurrences.first.metadata;
+    expect(find.text('Dossie operacional'), findsOneWidget);
+    expect(find.text('BO AI-01/2026'), findsOneWidget);
+    expect(
+      find.text('Audio e Imagem - Preservacao/coleta de CFTV - Sistema CFTV'),
+      findsOneWidget,
+    );
+    expect(find.text('Checklist de audio e imagem'), findsWidgets);
+    expect(find.text('Midias e arquivos'), findsWidgets);
+    expect(find.text('Vitimas'), findsNothing);
+    expect(find.text('Veiculos'), findsNothing);
+    expect(metadata.type, ForensicCaseType.audioImage);
+    expect(metadata.audioImageNature, AudioImageNature.cctvPreservation);
+    expect(metadata.audioImageContext, AudioImageContext.cctvSystem);
+    expect(metadata.expectedAudioImageEvidences, [
+      ExpectedAudioImageEvidence.cctvDvrNvr,
+      ExpectedAudioImageEvidence.cameraSystem,
+      ExpectedAudioImageEvidence.storageDevice,
+      ExpectedAudioImageEvidence.videos,
+      ExpectedAudioImageEvidence.accessCredentials,
+      ExpectedAudioImageEvidence.hashes,
+    ]);
+  });
+
+  testWidgets('creates papiloscopy occurrence from POP-guided setup flow', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 6200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repository = OccurrenceRepository();
+    await repository.load();
+    final settingsRepository = await _settingsRepository(
+      activeAreas: const [ForensicArea.traffic, ForensicArea.papiloscopy],
+    );
+    await tester.pumpWidget(
+      SicroCampoApp(
+        repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
+        settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
+      ),
+    );
+
+    await tester.tap(find.text('Iniciar pericia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Papiloscopia'));
+    await tester.pumpAndSettle();
+    expect(find.text('Transito'), findsWidgets);
+    expect(find.text('Papiloscopia'), findsWidgets);
+    expect(find.text('Configurar papiloscopia'), findsOneWidget);
+
+    await tester.tap(find.text('Configurar papiloscopia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Levantamento em local de crime').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.bySemanticsLabel('BO'), 'PAP-01/2026');
+    await tester.ensureVisible(find.text('Criar ocorrencia'));
+    await tester.tap(find.text('Criar ocorrencia'));
+    await tester.pumpAndSettle();
+
+    final metadata = repository.occurrences.first.metadata;
+    expect(find.text('Dossie operacional'), findsOneWidget);
+    expect(find.text('BO PAP-01/2026'), findsOneWidget);
+    expect(
+      find.text(
+        'Papiloscopia - Levantamento em local de crime - Local de crime',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Checklist de papiloscopia'), findsWidgets);
+    expect(find.text('Vestigios papiloscopicos'), findsWidgets);
+    expect(find.text('Vitimas'), findsNothing);
+    expect(find.text('Veiculos'), findsNothing);
+    expect(metadata.type, ForensicCaseType.papiloscopy);
+    expect(metadata.papiloscopyNature, PapiloscopyNature.crimeScenePrints);
+    expect(metadata.papiloscopyContext, PapiloscopyContext.crimeScene);
+    expect(metadata.expectedPapiloscopyEvidences, [
+      ExpectedPapiloscopyEvidence.latentPrints,
+      ExpectedPapiloscopyEvidence.patentPrints,
+      ExpectedPapiloscopyEvidence.plasticPrints,
+      ExpectedPapiloscopyEvidence.questionedObjects,
+      ExpectedPapiloscopyEvidence.adhesiveLifts,
+      ExpectedPapiloscopyEvidence.photographs,
+    ]);
   });
 
   testWidgets('dashboard shows consolidated MVP module status', (
@@ -327,7 +716,9 @@ void main() {
     await tester.pumpWidget(
       SicroCampoApp(
         repository: repository,
+        officialDocumentRepository: await _officialDocumentRepository(),
         settingsRepository: settingsRepository,
+        dutyShiftRepository: await _dutyShiftRepository(),
       ),
     );
     await tester.tap(find.text('BO 999/2026'));
@@ -365,7 +756,7 @@ void main() {
     );
     expect(find.text('Checklist de transito'), findsOneWidget);
     expect(
-      find.text('0/22 respondidos - 8 obrigatorios pendentes'),
+      find.text('0/29 respondidos - 9 obrigatorios pendentes'),
       findsOneWidget,
     );
     await tester.dragUntilVisible(
@@ -421,6 +812,28 @@ void main() {
   });
 }
 
+FieldOccurrence _reportOccurrence({
+  required String id,
+  required String bo,
+  required DateTime startedAt,
+}) {
+  return FieldOccurrence(
+    id: id,
+    createdAt: startedAt,
+    updatedAt: startedAt,
+    startedAt: startedAt,
+    metadata: const ForensicCaseMetadata(
+      trafficNature: TrafficNature.collision,
+    ),
+    caseData: CaseData(
+      bo: bo,
+      municipality: 'Macapa',
+      street: 'Av. Teste',
+      arrivedAt: startedAt,
+    ),
+  );
+}
+
 Future<AppSettingsRepository> _settingsRepository({
   List<ForensicArea> activeAreas = const [ForensicArea.traffic],
 }) async {
@@ -431,4 +844,16 @@ Future<AppSettingsRepository> _settingsRepository({
   );
   await settingsRepository.load();
   return settingsRepository;
+}
+
+Future<OfficialDocumentRepository> _officialDocumentRepository() async {
+  final repository = OfficialDocumentRepository();
+  await repository.load();
+  return repository;
+}
+
+Future<DutyShiftRepository> _dutyShiftRepository() async {
+  final repository = DutyShiftRepository();
+  await repository.load();
+  return repository;
 }

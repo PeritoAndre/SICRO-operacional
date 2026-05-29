@@ -459,6 +459,7 @@ class _ChecklistItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final pendingRequired =
         item.required && item.answer == ChecklistAnswer.unchecked;
+    final dropdownSpec = _dropdownSpecFor(item.id);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -544,6 +545,19 @@ class _ChecklistItemTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (dropdownSpec != null) ...[
+            _ChecklistDropdownField(
+              spec: dropdownSpec,
+              controller: noteController,
+              onChanged: (value) {
+                onNoteChanged(item.id, value);
+                if (item.answer == ChecklistAnswer.unchecked) {
+                  unawaited(onAnswerChanged(item, ChecklistAnswer.yes));
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
           TextField(
             controller: noteController,
             focusNode: noteFocusNode,
@@ -551,13 +565,65 @@ class _ChecklistItemTile extends StatelessWidget {
             minLines: 1,
             maxLines: 3,
             textInputAction: TextInputAction.newline,
-            decoration: const InputDecoration(
-              labelText: 'Observacao opcional',
-              prefixIcon: Icon(Icons.notes_outlined),
+            decoration: InputDecoration(
+              labelText: dropdownSpec == null
+                  ? 'Observacao opcional'
+                  : 'Complemento opcional',
+              prefixIcon: const Icon(Icons.notes_outlined),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ChecklistDropdownSpec {
+  const _ChecklistDropdownSpec({
+    required this.label,
+    required this.icon,
+    required this.options,
+  });
+
+  final String label;
+  final IconData icon;
+  final List<String> options;
+}
+
+class _ChecklistDropdownField extends StatelessWidget {
+  const _ChecklistDropdownField({
+    required this.spec,
+    required this.controller,
+    required this.onChanged,
+  });
+
+  final _ChecklistDropdownSpec spec;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = controller.text.trim();
+    final value = spec.options.contains(current) ? current : null;
+
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: spec.label,
+        prefixIcon: Icon(spec.icon),
+      ),
+      items: [
+        for (final option in spec.options)
+          DropdownMenuItem(value: option, child: Text(option)),
+      ],
+      onChanged: (value) {
+        if (value == null) {
+          return;
+        }
+        controller.text = value;
+        onChanged(value);
+      },
     );
   }
 }
@@ -864,6 +930,7 @@ IconData _categoryIcon(ChecklistCategory category) {
     ChecklistCategory.victims => Icons.personal_injury_outlined,
     ChecklistCategory.vehicles => Icons.directions_car_outlined,
     ChecklistCategory.roadConditions => Icons.alt_route_outlined,
+    ChecklistCategory.sketchSurvey => Icons.map_outlined,
     ChecklistCategory.pavement => Icons.layers_outlined,
     ChecklistCategory.lighting => Icons.lightbulb_outline,
     ChecklistCategory.weatherVisibility => Icons.visibility_outlined,
@@ -881,6 +948,31 @@ IconData _categoryIcon(ChecklistCategory category) {
     ChecklistCategory.damage => Icons.broken_image_outlined,
     ChecklistCategory.burglary => Icons.lock_open_outlined,
     ChecklistCategory.fire => Icons.local_fire_department_outlined,
+    ChecklistCategory.environmentalPlanning => Icons.map_outlined,
+    ChecklistCategory.environmentalScene => Icons.terrain_outlined,
+    ChecklistCategory.environmentalDamage => Icons.eco_outlined,
+    ChecklistCategory.environmentalSamples => Icons.science_outlined,
+    ChecklistCategory.ballisticReceipt => Icons.inventory_2_outlined,
+    ChecklistCategory.ballisticSafety => Icons.health_and_safety_outlined,
+    ChecklistCategory.firearms => Icons.gps_fixed_outlined,
+    ChecklistCategory.ammunition => Icons.adjust_outlined,
+    ChecklistCategory.gsrCollection => Icons.science_outlined,
+    ChecklistCategory.ballisticComparison => Icons.compare_arrows_outlined,
+    ChecklistCategory.multimediaReceipt => Icons.inventory_2_outlined,
+    ChecklistCategory.multimediaPreservation => Icons.shield_outlined,
+    ChecklistCategory.multimediaAdequacy => Icons.fact_check_outlined,
+    ChecklistCategory.multimediaProcessing => Icons.video_settings_outlined,
+    ChecklistCategory.cctvCollection => Icons.videocam_outlined,
+    ChecklistCategory.facialComparison => Icons.face_outlined,
+    ChecklistCategory.speakerComparison => Icons.record_voice_over_outlined,
+    ChecklistCategory.imageAuthenticity => Icons.verified_outlined,
+    ChecklistCategory.papiloscopyBiosafety => Icons.health_and_safety_outlined,
+    ChecklistCategory.papiloscopyCollection => Icons.fingerprint,
+    ChecklistCategory.papiloscopyDevelopment => Icons.manage_search_outlined,
+    ChecklistCategory.papiloscopyIdentification => Icons.badge_outlined,
+    ChecklistCategory.papiloscopyLab => Icons.science_outlined,
+    ChecklistCategory.papiloscopyNecro => Icons.accessibility_new_outlined,
+    ChecklistCategory.chainOfCustody => Icons.inventory_outlined,
   };
 }
 
@@ -891,6 +983,7 @@ List<ChecklistCategory> _categoryOptionsFor(ForensicCaseType type) {
       ChecklistCategory.victims,
       ChecklistCategory.vehicles,
       ChecklistCategory.roadConditions,
+      ChecklistCategory.sketchSurvey,
       ChecklistCategory.pavement,
       ChecklistCategory.lighting,
       ChecklistCategory.weatherVisibility,
@@ -901,14 +994,16 @@ List<ChecklistCategory> _categoryOptionsFor(ForensicCaseType type) {
     ],
     ForensicCaseType.violentDeath => const [
       ChecklistCategory.preservation,
+      ChecklistCategory.environment,
+      ChecklistCategory.photographicRecord,
+      ChecklistCategory.traces,
+      ChecklistCategory.chainOfCustody,
       ChecklistCategory.bodyVictim,
       ChecklistCategory.victims,
       ChecklistCategory.biologicalTraces,
       ChecklistCategory.ballisticTraces,
       ChecklistCategory.weaponsObjects,
-      ChecklistCategory.environment,
-      ChecklistCategory.photographicRecord,
-      ChecklistCategory.traces,
+      ChecklistCategory.vehicles,
     ],
     ForensicCaseType.property => const [
       ChecklistCategory.preservation,
@@ -921,16 +1016,120 @@ List<ChecklistCategory> _categoryOptionsFor(ForensicCaseType type) {
       ChecklistCategory.environment,
       ChecklistCategory.photographicRecord,
     ],
+    ForensicCaseType.environmental => const [
+      ChecklistCategory.environmentalPlanning,
+      ChecklistCategory.environmentalScene,
+      ChecklistCategory.environmentalDamage,
+      ChecklistCategory.traces,
+      ChecklistCategory.environmentalSamples,
+      ChecklistCategory.chainOfCustody,
+      ChecklistCategory.documentation,
+      ChecklistCategory.photographicRecord,
+      ChecklistCategory.fire,
+    ],
+    ForensicCaseType.ballistics => const [
+      ChecklistCategory.ballisticReceipt,
+      ChecklistCategory.ballisticSafety,
+      ChecklistCategory.firearms,
+      ChecklistCategory.ammunition,
+      ChecklistCategory.ballisticTraces,
+      ChecklistCategory.gsrCollection,
+      ChecklistCategory.ballisticComparison,
+      ChecklistCategory.photographicRecord,
+      ChecklistCategory.chainOfCustody,
+      ChecklistCategory.documentation,
+    ],
+    ForensicCaseType.audioImage => const [
+      ChecklistCategory.multimediaReceipt,
+      ChecklistCategory.multimediaPreservation,
+      ChecklistCategory.multimediaAdequacy,
+      ChecklistCategory.multimediaProcessing,
+      ChecklistCategory.cctvCollection,
+      ChecklistCategory.facialComparison,
+      ChecklistCategory.speakerComparison,
+      ChecklistCategory.imageAuthenticity,
+      ChecklistCategory.photographicRecord,
+      ChecklistCategory.chainOfCustody,
+      ChecklistCategory.documentation,
+    ],
+    ForensicCaseType.papiloscopy => const [
+      ChecklistCategory.papiloscopyBiosafety,
+      ChecklistCategory.papiloscopyCollection,
+      ChecklistCategory.papiloscopyDevelopment,
+      ChecklistCategory.papiloscopyIdentification,
+      ChecklistCategory.papiloscopyLab,
+      ChecklistCategory.papiloscopyNecro,
+      ChecklistCategory.photographicRecord,
+      ChecklistCategory.chainOfCustody,
+      ChecklistCategory.documentation,
+      ChecklistCategory.preservation,
+    ],
   };
 }
 
 String _screenTitle(FieldOccurrence occurrence) {
   return switch (occurrence.metadata.type) {
     ForensicCaseType.traffic => 'Checklist de transito',
-    ForensicCaseType.violentDeath => 'Checklist de morte violenta',
+    ForensicCaseType.violentDeath => 'Checklist de local de crime',
     ForensicCaseType.property => 'Checklist de patrimonio',
+    ForensicCaseType.environmental => 'Checklist ambiental',
+    ForensicCaseType.ballistics => 'Checklist de balistica',
+    ForensicCaseType.audioImage => 'Checklist de audio e imagem',
+    ForensicCaseType.papiloscopy => 'Checklist de papiloscopia',
   };
 }
+
+_ChecklistDropdownSpec? _dropdownSpecFor(String itemId) {
+  return switch (itemId) {
+    'tipo_via_registrado' => const _ChecklistDropdownSpec(
+      label: 'Tipo de via/pavimento',
+      icon: Icons.alt_route_outlined,
+      options: _roadTypeOptions,
+    ),
+    'sinalizacao_vertical' => const _ChecklistDropdownSpec(
+      label: 'Placa/sinalizacao principal',
+      icon: Icons.signpost_outlined,
+      options: _trafficSignOptions,
+    ),
+    _ => null,
+  };
+}
+
+const _roadTypeOptions = [
+  'Asfalto urbano',
+  'Asfalto rodoviario',
+  'Concreto',
+  'Paralelepipedo/bloquete',
+  'Picarra/cascalho',
+  'Terra/ramal',
+  'Rural/estrada vicinal',
+  'Ponte/viaduto',
+  'Estacionamento/patio',
+  'Outro',
+];
+
+const _trafficSignOptions = [
+  'PARE (R-1)',
+  'De a preferencia (R-2)',
+  'Velocidade maxima',
+  'Proibido ultrapassar',
+  'Proibido estacionar',
+  'Proibido parar e estacionar',
+  'Sentido obrigatorio',
+  'Proibido virar a esquerda',
+  'Proibido virar a direita',
+  'Passagem obrigatoria',
+  'Area escolar',
+  'Pedestre',
+  'Semaforo a frente',
+  'Intersecao a frente',
+  'Curva acentuada',
+  'Pista escorregadia',
+  'Lombada',
+  'Animais na pista',
+  'Obras',
+  'Outra',
+];
 
 Color _answerColor(ChecklistAnswer answer) {
   return switch (answer) {

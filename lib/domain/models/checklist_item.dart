@@ -24,6 +24,7 @@ enum ChecklistCategory {
   victims('vitimas', 'Vitimas'),
   vehicles('veiculos', 'Veiculos'),
   roadConditions('condicoes_via', 'Condicoes da via'),
+  sketchSurvey('croqui_levantamento', 'Croqui / levantamento'),
   pavement('pavimento', 'Pavimento'),
   lighting('iluminacao', 'Iluminacao'),
   weatherVisibility('clima_visibilidade', 'Clima / visibilidade'),
@@ -40,7 +41,35 @@ enum ChecklistCategory {
   documentation('documentacao', 'Documentacao'),
   damage('danos', 'Danos'),
   burglary('arrombamento', 'Arrombamento'),
-  fire('incendio', 'Incendio');
+  fire('incendio', 'Incendio'),
+  environmentalPlanning('planejamento_ambiental', 'Planejamento ambiental'),
+  environmentalScene('local_ambiental', 'Local ambiental'),
+  environmentalDamage('dano_ambiental', 'Dano ambiental'),
+  environmentalSamples('amostras_coleta', 'Amostras / coleta'),
+  ballisticReceipt('recebimento_balistico', 'Recebimento / custodia'),
+  ballisticSafety('seguranca_balistica', 'Seguranca balistica'),
+  firearms('armas_fogo', 'Armas de fogo'),
+  ammunition('municoes', 'Municoes'),
+  gsrCollection('coleta_gsr', 'Coleta GSR'),
+  ballisticComparison('confronto_balistico', 'Confronto balistico'),
+  multimediaReceipt('recebimento_multimidia', 'Recebimento / custodia'),
+  multimediaPreservation('preservacao_multimidia', 'Preservacao digital'),
+  multimediaAdequacy('adequabilidade_multimidia', 'Adequabilidade'),
+  multimediaProcessing('processamento_multimidia', 'Processamento'),
+  cctvCollection('coleta_cftv', 'Coleta CFTV'),
+  facialComparison('comparacao_facial', 'Comparacao facial'),
+  speakerComparison('comparacao_locutor', 'Comparacao de locutor'),
+  imageAuthenticity('autenticidade_imagem', 'Verificacao de edicao'),
+  papiloscopyBiosafety('biosseguranca_papiloscopia', 'Biosseguranca'),
+  papiloscopyCollection('coleta_papiloscopica', 'Coleta papiloscopica'),
+  papiloscopyDevelopment('revelacao_papiloscopica', 'Revelacao papiloscopica'),
+  papiloscopyIdentification(
+    'identificacao_papiloscopica',
+    'Identificacao papiloscopica',
+  ),
+  papiloscopyLab('laboratorio_papiloscopia', 'Laboratorio'),
+  papiloscopyNecro('necropapiloscopia', 'Necropapiloscopia'),
+  chainOfCustody('cadeia_custodia', 'Cadeia de custodia');
 
   const ChecklistCategory(this.code, this.label);
 
@@ -191,6 +220,118 @@ ChecklistCategory _categoryFromLegacyId(String id) {
       id.contains('queima') ||
       id.contains('fuligem')) {
     return ChecklistCategory.fire;
+  }
+  if (id.contains('amb_planejamento') ||
+      id.contains('ambiental_planejamento') ||
+      id.contains('documental_ambiental')) {
+    return ChecklistCategory.environmentalPlanning;
+  }
+  if (id.contains('amb_local') ||
+      id.contains('corpo_hidrico') ||
+      id.contains('bioma') ||
+      id.contains('app') ||
+      id.contains('uc') ||
+      id.contains('rl')) {
+    return ChecklistCategory.environmentalScene;
+  }
+  if (id.contains('amb_dano') ||
+      id.contains('desmatamento') ||
+      id.contains('poluicao') ||
+      id.contains('maus_tratos') ||
+      id.contains('necropsia') ||
+      id.contains('supressao')) {
+    return ChecklistCategory.environmentalDamage;
+  }
+  if (id.contains('ai_recebimento') || id.contains('ai_documento')) {
+    return ChecklistCategory.multimediaReceipt;
+  }
+  if (id.contains('ai_preservacao') ||
+      id.contains('ai_hash') ||
+      id.contains('ai_clone')) {
+    return ChecklistCategory.multimediaPreservation;
+  }
+  if (id.contains('ai_adequabilidade') ||
+      id.contains('ai_viabilidade') ||
+      id.contains('ai_original')) {
+    return ChecklistCategory.multimediaAdequacy;
+  }
+  if (id.contains('ai_processamento') ||
+      id.contains('ai_melhoramento') ||
+      id.contains('ai_quadro') ||
+      id.contains('ai_frame')) {
+    return ChecklistCategory.multimediaProcessing;
+  }
+  if (id.contains('ai_cftv') ||
+      id.contains('ai_dvr') ||
+      id.contains('ai_nvr')) {
+    return ChecklistCategory.cctvCollection;
+  }
+  if (id.contains('ai_facial') || id.contains('ai_face')) {
+    return ChecklistCategory.facialComparison;
+  }
+  if (id.contains('ai_locutor') || id.contains('ai_vocal')) {
+    return ChecklistCategory.speakerComparison;
+  }
+  if (id.contains('ai_edicao') || id.contains('ai_autenticidade')) {
+    return ChecklistCategory.imageAuthenticity;
+  }
+  if (id.contains('pap_biosseguranca') ||
+      id.contains('pap_epi') ||
+      id.contains('pap_seguranca')) {
+    return ChecklistCategory.papiloscopyBiosafety;
+  }
+  if (id.contains('pap_coleta') ||
+      id.contains('pap_datilograma') ||
+      id.contains('pap_palmar') ||
+      id.contains('pap_live_scan') ||
+      id.contains('pap_entintamento')) {
+    return ChecklistCategory.papiloscopyCollection;
+  }
+  if (id.contains('pap_revelacao') ||
+      id.contains('pap_latente') ||
+      id.contains('pap_decalque') ||
+      id.contains('pap_suporte')) {
+    return ChecklistCategory.papiloscopyDevelopment;
+  }
+  if (id.contains('pap_identificacao') ||
+      id.contains('pap_afis') ||
+      id.contains('pap_abis') ||
+      id.contains('pap_confronto')) {
+    return ChecklistCategory.papiloscopyIdentification;
+  }
+  if (id.contains('pap_laboratorio') ||
+      id.contains('pap_reagente') ||
+      id.contains('pap_fispq')) {
+    return ChecklistCategory.papiloscopyLab;
+  }
+  if (id.contains('pap_necro') ||
+      id.contains('pap_cadaver') ||
+      id.contains('pap_falange')) {
+    return ChecklistCategory.papiloscopyNecro;
+  }
+  if (id.contains('amostra') || id.contains('coleta')) {
+    return ChecklistCategory.environmentalSamples;
+  }
+  if (id.contains('bal_recebimento') || id.contains('bal_documento')) {
+    return ChecklistCategory.ballisticReceipt;
+  }
+  if (id.contains('bal_seguranca') || id.contains('bal_epi')) {
+    return ChecklistCategory.ballisticSafety;
+  }
+  if (id.contains('bal_arma')) {
+    return ChecklistCategory.firearms;
+  }
+  if (id.contains('bal_cartucho') || id.contains('bal_municao')) {
+    return ChecklistCategory.ammunition;
+  }
+  if (id.contains('bal_gsr')) {
+    return ChecklistCategory.gsrCollection;
+  }
+  if (id.contains('bal_confronto') || id.contains('bal_padrao')) {
+    return ChecklistCategory.ballisticComparison;
+  }
+  if (id.contains('cadeia_custodia') || id.contains('lacrado')) {
+    return ChecklistCategory.chainOfCustody;
   }
   if (id.contains('veiculo')) {
     return ChecklistCategory.vehicles;

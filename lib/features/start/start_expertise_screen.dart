@@ -7,6 +7,10 @@ import '../../domain/models/app_settings.dart';
 import '../../domain/models/case_data.dart';
 import '../../domain/models/forensic_case_metadata.dart';
 import '../../features/occurrences/occurrence_dashboard_screen.dart';
+import 'audio_image_setup_screen.dart';
+import 'ballistics_setup_screen.dart';
+import 'environmental_setup_screen.dart';
+import 'papiloscopy_setup_screen.dart';
 import 'property_setup_screen.dart';
 import 'violent_death_setup_screen.dart';
 
@@ -29,6 +33,7 @@ class _StartExpertiseScreenState extends State<StartExpertiseScreen> {
   ForensicCaseType _type = ForensicCaseType.traffic;
   TrafficNature _trafficNature = TrafficNature.collision;
   final Set<TrafficInvolved> _trafficInvolved = {};
+  bool _officialVehicleInvolved = false;
   OccurrenceResult _result = OccurrenceResult.notInformed;
 
   final _bo = TextEditingController();
@@ -88,6 +93,7 @@ class _StartExpertiseScreenState extends State<StartExpertiseScreen> {
               _TrafficForm(
                 nature: _trafficNature,
                 involved: _trafficInvolved,
+                officialVehicleInvolved: _officialVehicleInvolved,
                 result: _result,
                 onNatureChanged: (value) {
                   setState(() {
@@ -106,12 +112,22 @@ class _StartExpertiseScreenState extends State<StartExpertiseScreen> {
                     }
                   });
                 },
+                onOfficialVehicleChanged: (value) =>
+                    setState(() => _officialVehicleInvolved = value),
                 onResultChanged: (value) => setState(() => _result = value),
               )
             else if (_type == ForensicCaseType.violentDeath)
               _ViolentDeathEntryPanel(onTap: _openViolentDeathSetup)
             else if (_type == ForensicCaseType.property)
               _PropertyEntryPanel(onTap: _openPropertySetup)
+            else if (_type == ForensicCaseType.environmental)
+              _EnvironmentalEntryPanel(onTap: _openEnvironmentalSetup)
+            else if (_type == ForensicCaseType.ballistics)
+              _BallisticsEntryPanel(onTap: _openBallisticsSetup)
+            else if (_type == ForensicCaseType.audioImage)
+              _AudioImageEntryPanel(onTap: _openAudioImageSetup)
+            else if (_type == ForensicCaseType.papiloscopy)
+              _PapiloscopyEntryPanel(onTap: _openPapiloscopySetup)
             else
               _FutureModuleNotice(type: _type),
             const SizedBox(height: 16),
@@ -131,6 +147,14 @@ class _StartExpertiseScreenState extends State<StartExpertiseScreen> {
                   ? _openViolentDeathSetup
                   : _type == ForensicCaseType.property
                   ? _openPropertySetup
+                  : _type == ForensicCaseType.environmental
+                  ? _openEnvironmentalSetup
+                  : _type == ForensicCaseType.ballistics
+                  ? _openBallisticsSetup
+                  : _type == ForensicCaseType.audioImage
+                  ? _openAudioImageSetup
+                  : _type == ForensicCaseType.papiloscopy
+                  ? _openPapiloscopySetup
                   : null,
               icon: _creating
                   ? const SizedBox(
@@ -143,9 +167,17 @@ class _StartExpertiseScreenState extends State<StartExpertiseScreen> {
                 _type == ForensicCaseType.traffic
                     ? 'Criar ocorrencia'
                     : _type == ForensicCaseType.violentDeath
-                    ? 'Configurar morte violenta'
+                    ? 'Configurar local de crime'
                     : _type == ForensicCaseType.property
                     ? 'Configurar patrimonio'
+                    : _type == ForensicCaseType.environmental
+                    ? 'Configurar ambiental'
+                    : _type == ForensicCaseType.ballistics
+                    ? 'Configurar balistica'
+                    : _type == ForensicCaseType.audioImage
+                    ? 'Configurar audio/imagem'
+                    : _type == ForensicCaseType.papiloscopy
+                    ? 'Configurar papiloscopia'
                     : 'Modulo em preparacao',
               ),
               style: FilledButton.styleFrom(
@@ -175,6 +207,7 @@ class _StartExpertiseScreenState extends State<StartExpertiseScreen> {
         trafficInvolved: _trafficNature == TrafficNature.collision
             ? _trafficInvolved.toList()
             : const [],
+        officialVehicleInvolved: _officialVehicleInvolved,
         result: _result,
       ),
     );
@@ -211,11 +244,47 @@ class _StartExpertiseScreenState extends State<StartExpertiseScreen> {
     );
   }
 
+  void _openEnvironmentalSetup() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EnvironmentalSetupScreen(repository: widget.repository),
+      ),
+    );
+  }
+
+  void _openBallisticsSetup() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BallisticsSetupScreen(repository: widget.repository),
+      ),
+    );
+  }
+
+  void _openAudioImageSetup() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AudioImageSetupScreen(repository: widget.repository),
+      ),
+    );
+  }
+
+  void _openPapiloscopySetup() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PapiloscopySetupScreen(repository: widget.repository),
+      ),
+    );
+  }
+
   ForensicCaseType _caseTypeForArea(ForensicArea area) {
     return switch (area) {
       ForensicArea.traffic => ForensicCaseType.traffic,
       ForensicArea.violentDeath => ForensicCaseType.violentDeath,
       ForensicArea.property => ForensicCaseType.property,
+      ForensicArea.environmental => ForensicCaseType.environmental,
+      ForensicArea.ballistics => ForensicCaseType.ballistics,
+      ForensicArea.audioImage => ForensicCaseType.audioImage,
+      ForensicArea.papiloscopy => ForensicCaseType.papiloscopy,
     };
   }
 }
@@ -258,6 +327,10 @@ class _AreaChoices extends StatelessWidget {
       ForensicArea.traffic => ForensicCaseType.traffic,
       ForensicArea.violentDeath => ForensicCaseType.violentDeath,
       ForensicArea.property => ForensicCaseType.property,
+      ForensicArea.environmental => ForensicCaseType.environmental,
+      ForensicArea.ballistics => ForensicCaseType.ballistics,
+      ForensicArea.audioImage => ForensicCaseType.audioImage,
+      ForensicArea.papiloscopy => ForensicCaseType.papiloscopy,
     };
   }
 
@@ -266,6 +339,10 @@ class _AreaChoices extends StatelessWidget {
       ForensicCaseType.traffic => Icons.traffic_outlined,
       ForensicCaseType.violentDeath => Icons.health_and_safety_outlined,
       ForensicCaseType.property => Icons.domain_verification_outlined,
+      ForensicCaseType.environmental => Icons.forest_outlined,
+      ForensicCaseType.ballistics => Icons.adjust_outlined,
+      ForensicCaseType.audioImage => Icons.perm_media_outlined,
+      ForensicCaseType.papiloscopy => Icons.fingerprint,
     };
   }
 }
@@ -274,17 +351,21 @@ class _TrafficForm extends StatelessWidget {
   const _TrafficForm({
     required this.nature,
     required this.involved,
+    required this.officialVehicleInvolved,
     required this.result,
     required this.onNatureChanged,
     required this.onInvolvedChanged,
+    required this.onOfficialVehicleChanged,
     required this.onResultChanged,
   });
 
   final TrafficNature nature;
   final Set<TrafficInvolved> involved;
+  final bool officialVehicleInvolved;
   final OccurrenceResult result;
   final ValueChanged<TrafficNature> onNatureChanged;
   final void Function(TrafficInvolved item, bool selected) onInvolvedChanged;
+  final ValueChanged<bool> onOfficialVehicleChanged;
   final ValueChanged<OccurrenceResult> onResultChanged;
 
   @override
@@ -343,6 +424,24 @@ class _TrafficForm extends StatelessWidget {
                 }).toList(),
               ),
             ],
+            const SizedBox(height: 16),
+            SwitchListTile(
+              value: officialVehicleInvolved,
+              onChanged: onOfficialVehicleChanged,
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Carro oficial envolvido',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: const Text(
+                'Marca ocorrencias de atendimento obrigatorio mesmo sem vitima.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              secondary: const Icon(
+                Icons.local_police_outlined,
+                color: AppColors.gold,
+              ),
+            ),
             const SizedBox(height: 16),
             const Text(
               'Resultado',
@@ -419,7 +518,7 @@ class _ViolentDeathEntryPanel extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Morte violenta',
+                    'Local de crime',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -429,7 +528,7 @@ class _ViolentDeathEntryPanel extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Abra a configuracao inicial para informar natureza, contexto do corpo, ambiente e vestigios esperados.',
+              'Abra a configuracao inicial para informar natureza, preservacao, corpo/vitima, ambiente e vestigios esperados.',
               style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -478,6 +577,186 @@ class _PropertyEntryPanel extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               'Use o fluxo simplificado para avaliacao direta, avaliacao indireta, danos, arrombamento ou incendio.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onTap,
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('Abrir configuracao'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EnvironmentalEntryPanel extends StatelessWidget {
+  const _EnvironmentalEntryPanel({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.forest_outlined, color: AppColors.gold),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Pericia ambiental',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Configure desmatamento, maus-tratos a animais, poluicao hidrica, incendio florestal ou necropsia veterinaria.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onTap,
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('Abrir configuracao'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BallisticsEntryPanel extends StatelessWidget {
+  const _BallisticsEntryPanel({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.adjust_outlined, color: AppColors.gold),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Balistica Forense',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Configure confronto balistico, coleta GSR, eficiencia de arma ou eficiencia de cartuchos.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onTap,
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('Abrir configuracao'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AudioImageEntryPanel extends StatelessWidget {
+  const _AudioImageEntryPanel({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.perm_media_outlined, color: AppColors.gold),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Audio e Imagem',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Configure analise de imagens, CFTV, verificacao de edicao, comparacao facial, locutor ou estimativa de estatura.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onTap,
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('Abrir configuracao'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PapiloscopyEntryPanel extends StatelessWidget {
+  const _PapiloscopyEntryPanel({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.fingerprint, color: AppColors.gold),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Papiloscopia',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Configure identificacao criminal, levantamento em local, laboratorio ou necropapiloscopia conforme POP.',
               style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),

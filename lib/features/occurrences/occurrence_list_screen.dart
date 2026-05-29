@@ -2,25 +2,28 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../core/data/app_settings_repository.dart';
+import '../../core/data/official_document_repository.dart';
 import '../../core/data/occurrence_repository.dart';
 import '../../domain/models/occurrence.dart';
 import '../../features/duty_report/duty_report_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/start/start_expertise_screen.dart';
 import '../../shared/widgets/empty_state.dart';
-import '../../shared/widgets/status_chip.dart';
 import 'new_occurrence_screen.dart';
 import 'occurrence_delete_flow.dart';
 import 'occurrence_dashboard_screen.dart';
+import 'operational_diary_widgets.dart';
 
 class OccurrenceListScreen extends StatefulWidget {
   const OccurrenceListScreen({
     required this.repository,
+    this.officialDocumentRepository,
     this.settingsRepository,
     super.key,
   });
 
   final OccurrenceRepository repository;
+  final OfficialDocumentRepository? officialDocumentRepository;
   final AppSettingsRepository? settingsRepository;
 
   @override
@@ -34,7 +37,7 @@ class _OccurrenceListScreenState extends State<OccurrenceListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SICRO Operacional'),
+        title: const Text('Diario Operacional'),
         actions: [
           IconButton(
             tooltip: 'Relatorio de plantao',
@@ -57,35 +60,38 @@ class _OccurrenceListScreenState extends State<OccurrenceListScreen> {
           listenable: widget.repository,
           builder: (context, _) {
             final occurrences = _filter(widget.repository.occurrences);
+            final groups = groupOccurrencesByMonth(occurrences);
+
             return CustomScrollView(
               slivers: [
-                SliverToBoxAdapter(child: _Header(onChanged: _setQuery)),
-                if (occurrences.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      icon: Icons.assignment_outlined,
-                      title: 'Nenhuma ocorrencia em andamento',
-                      message:
-                          'Crie uma ocorrencia para registrar dados, fotos, checklist e medicoes em campo.',
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                    sliver: SliverList.separated(
-                      itemCount: occurrences.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        return _OccurrenceCard(
-                          occurrence: occurrences[index],
-                          onTap: () => _openDashboard(occurrences[index].id),
-                          onDelete: () =>
-                              _confirmDeleteOccurrence(occurrences[index]),
-                        );
-                      },
-                    ),
+                SliverToBoxAdapter(
+                  child: _DiarySearchHeader(
+                    total: widget.repository.occurrences.length,
+                    filtered: occurrences.length,
+                    onChanged: _setQuery,
                   ),
+                ),
+                if (groups.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _query.trim().isEmpty
+                        ? const OperationalDiaryEmpty()
+                        : const EmptyState(
+                            icon: Icons.search_off_outlined,
+                            title: 'Nenhum registro encontrado',
+                            message:
+                                'Tente buscar por BO, protocolo, municipio ou local.',
+                          ),
+                  )
+                else ...[
+                  for (final group in groups)
+                    OperationalDiarySection(
+                      group: group,
+                      onOpen: (occurrence) => _openDashboard(occurrence.id),
+                      onDelete: _confirmDeleteOccurrence,
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 96)),
+                ],
               ],
             );
           },
@@ -94,7 +100,7 @@ class _OccurrenceListScreenState extends State<OccurrenceListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openNewOccurrence,
         icon: const Icon(Icons.add),
-        label: const Text('Iniciar'),
+        label: const Text('Nova pericia'),
       ),
     );
   }
@@ -109,7 +115,9 @@ class _OccurrenceListScreenState extends State<OccurrenceListScreen> {
       return data.bo.toLowerCase().contains(query) ||
           data.protocol.toLowerCase().contains(query) ||
           data.municipality.toLowerCase().contains(query) ||
-          data.street.toLowerCase().contains(query);
+          data.district.toLowerCase().contains(query) ||
+          data.street.toLowerCase().contains(query) ||
+          occurrence.metadata.summary.toLowerCase().contains(query);
     }).toList();
   }
 
@@ -143,6 +151,7 @@ class _OccurrenceListScreenState extends State<OccurrenceListScreen> {
         builder: (_) => OccurrenceDashboardScreen(
           repository: widget.repository,
           occurrenceId: occurrenceId,
+          officialDocumentRepository: widget.officialDocumentRepository,
         ),
       ),
     );
@@ -184,30 +193,41 @@ class _OccurrenceListScreenState extends State<OccurrenceListScreen> {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.onChanged});
+class _DiarySearchHeader extends StatelessWidget {
+  const _DiarySearchHeader({
+    required this.total,
+    required this.filtered,
+    required this.onChanged,
+  });
 
+  final int total;
+  final int filtered;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Coleta pericial offline',
+            'Linha do tempo',
             style: Theme.of(
               context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'Organize o dossie operacional e gere um pacote para o SICRO desktop.',
-            style: TextStyle(color: AppColors.textSecondary),
+          const SizedBox(height: 4),
+          Text(
+            filtered == total
+                ? '$total registro(s) no diario operacional'
+                : '$filtered de $total registro(s) encontrados',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           TextField(
             onChanged: onChanged,
             decoration: const InputDecoration(
@@ -217,142 +237,6 @@ class _Header extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _OccurrenceCard extends StatelessWidget {
-  const _OccurrenceCard({
-    required this.occurrence,
-    required this.onTap,
-    required this.onDelete,
-  });
-
-  final FieldOccurrence occurrence;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = switch (occurrence.status) {
-      OccurrenceStatus.inProgress => AppColors.gold,
-      OccurrenceStatus.completed => AppColors.success,
-      OccurrenceStatus.exported => AppColors.active,
-      OccurrenceStatus.pendingReview => AppColors.gold,
-      OccurrenceStatus.incomplete => AppColors.danger,
-      OccurrenceStatus.archived => AppColors.textSecondary,
-    };
-
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      occurrence.caseData.displayTitle,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  StatusChip(
-                    label: occurrence.status.label,
-                    color: statusColor,
-                  ),
-                  const SizedBox(width: 2),
-                  PopupMenuButton<_OccurrenceCardAction>(
-                    tooltip: 'Opcoes da ocorrencia',
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (action) {
-                      switch (action) {
-                        case _OccurrenceCardAction.delete:
-                          onDelete();
-                      }
-                    },
-                    itemBuilder: (context) {
-                      return const [
-                        PopupMenuItem(
-                          value: _OccurrenceCardAction.delete,
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline,
-                                color: AppColors.danger,
-                              ),
-                              SizedBox(width: 10),
-                              Text('Excluir'),
-                            ],
-                          ),
-                        ),
-                      ];
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                occurrence.caseData.displayLocation,
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                occurrence.metadata.summary,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 14,
-                runSpacing: 8,
-                children: [
-                  _Metric(
-                    icon: Icons.photo_camera_outlined,
-                    value: '${occurrence.photos.length} fotos',
-                  ),
-                  _Metric(
-                    icon: Icons.directions_car_outlined,
-                    value: '${occurrence.vehicles.length} veiculos',
-                  ),
-                  _Metric(
-                    icon: Icons.rule_outlined,
-                    value: '${occurrence.measurements.length} medicoes',
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-enum _OccurrenceCardAction { delete }
-
-class _Metric extends StatelessWidget {
-  const _Metric({required this.icon, required this.value});
-
-  final IconData icon;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: AppColors.gold),
-        const SizedBox(width: 4),
-        Text(value, style: const TextStyle(color: AppColors.textSecondary)),
-      ],
     );
   }
 }

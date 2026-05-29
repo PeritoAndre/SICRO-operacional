@@ -31,6 +31,8 @@ class _CaseDataScreenState extends State<CaseDataScreen> {
   final _reference = TextEditingController();
   final _peritians = TextEditingController();
   final _supportTeam = TextEditingController();
+  final _policeTeam = TextEditingController();
+  final _policeCommander = TextEditingController();
   Timer? _saveTimer;
   bool _initialized = false;
   String? _lastSavedSignature;
@@ -53,6 +55,8 @@ class _CaseDataScreenState extends State<CaseDataScreen> {
     _reference.text = data.reference;
     _peritians.text = data.peritians;
     _supportTeam.text = data.supportTeam;
+    _policeTeam.text = data.policeTeam;
+    _policeCommander.text = data.policeCommander;
     _lastSavedSignature = _signature(data);
     _initialized = true;
   }
@@ -71,6 +75,8 @@ class _CaseDataScreenState extends State<CaseDataScreen> {
     _reference.dispose();
     _peritians.dispose();
     _supportTeam.dispose();
+    _policeTeam.dispose();
+    _policeCommander.dispose();
     super.dispose();
   }
 
@@ -158,8 +164,20 @@ class _CaseDataScreenState extends State<CaseDataScreen> {
             ),
             _Field(
               controller: _supportTeam,
-              label: 'Equipe de apoio',
+              label: 'Tecnico Pericial',
               icon: Icons.groups_outlined,
+              onChanged: _scheduleSave,
+            ),
+            _Field(
+              controller: _policeTeam,
+              label: 'Equipe policial / batalhao',
+              icon: Icons.local_police_outlined,
+              onChanged: _scheduleSave,
+            ),
+            _Field(
+              controller: _policeCommander,
+              label: 'Comandante / responsavel pela preservacao',
+              icon: Icons.shield_outlined,
               onChanged: _scheduleSave,
             ),
             const SizedBox(height: 12),
@@ -210,6 +228,8 @@ class _CaseDataScreenState extends State<CaseDataScreen> {
       reference: _reference.text.trim(),
       peritians: _peritians.text.trim(),
       supportTeam: _supportTeam.text.trim(),
+      policeTeam: _policeTeam.text.trim(),
+      policeCommander: _policeCommander.text.trim(),
     );
     final signature = _signature(data);
     if (_lastSavedSignature == signature) {
@@ -258,5 +278,7 @@ String _signature(CaseData data) {
     data.reference,
     data.peritians,
     data.supportTeam,
+    data.policeTeam,
+    data.policeCommander,
   ].join('|');
 }
